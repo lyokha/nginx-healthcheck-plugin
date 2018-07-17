@@ -25,7 +25,7 @@ This is quite standard in Nginx: a peer gets marked as *failed* when its
 *T*. Values of *N* and *T* are defined in arguments *max_fails* and
 *fail_timeout* in directive *server* respectively: by default they are equal to
 *1* and *10s*. When a peer *fails*, it cannot be chosen for proxying requests
-during the next *N* seconds.
+during the next time period of *T*.
 
 And here the active health checks come into play! They merely move the time of
 the last check of failed peers forward periodically, say every 5 seconds, which
