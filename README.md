@@ -21,8 +21,8 @@ If all the peers in a checked upstream respond successfully then the active
 health check does nothing! Successfulness of a peer response is checked against
 the rules of directive *proxy_next_upstream* and settings in directive *server*.
 This is quite standard in Nginx: a peer gets marked as *failed* when its
-response does not pass the *proxy_next_upstream* rules *N* times during time
-period of *T*. Values of *N* and *T* are defined in arguments *max_fails* and
+*N* responses do not pass the *proxy_next_upstream* rules during time period of
+*T*. Values of *N* and *T* are defined in arguments *max_fails* and
 *fail_timeout* in directive *server* respectively: by default they are equal to
 *1* and *10s*. When a peer *fails*, it cannot be chosen for proxying requests
 during the next *N* seconds.
@@ -38,11 +38,11 @@ What the monitoring here means
 
 There are traditional *per-worker* and *shared* upstreams. Monitoring of
 traditional (or normal) upstreams is built in a dedicated *location* that
-returns a JSON which contains a list of *failed* peers nested in *worker's
-PID -> health check service -> upstream* hierarchy. Monitoring of shared
-upstreams is as well built in a dedicated location that returns a JSON with a
-list of failed peers nested in *health check service -> upstream* hierarchy. The
-meaning of the *health check service* will be explained later.
+returns a JSON object which contains a list of *failed* peers nested in
+*worker's PID -> health check service -> upstream* hierarchy. Monitoring of
+shared upstreams is as well built in a dedicated location that returns a JSON
+object with a list of failed peers nested in *health check service -> upstream*
+hierarchy. The meaning of the *health check service* will be explained later.
 
 Examples
 --------
@@ -147,23 +147,23 @@ http {
 ```
 
 In this configuration two *health check services* are declared: they are bound
-to *service variables* `$hs_service_healthcheck` and `$hs_service_healthcheck0`.
-The services run two instances of an *asynchronous* Haskell handler *checkPeers*
-in every Nginx worker process when the workers start. The services has
-complementary *service update hooks* that run a Haskell handler *updatePeers*
-*synchronously* in the main Nginx thread when the service variable updates, i.e.
-every 5 (or up to 7) seconds as stated in values *interval* and *peerTimeout* in
-*constructor* *Conf*. Each service has an associated unique *key* specified
-before the *Conf* declaration: in this example keys are equal to the names of
-service variables. Besides time intervals, in constructor *Conf* a list of
-upstreams to check, an optional *endpoint* and an optional monitoring port where
-statistics about failed peers should be sent to are defined. Endpoints contain
-an URL on which health checks will test failed peers, and *passing rules* to
-describe in which cases failed peers must be regarded as valid again. Currently,
-only two kinds of passing rules are supported: *DefaultPassRule* (when a peer
-responds with *HTTP status 200*) and *PassRuleByHttpStatus*. Internally,
-*updatePeers* calls a C function that reads and updates Nginx data related to
-peer statuses.
+to *service variables* *\$hs_service_healthcheck* and
+*\$hs_service_healthcheck0*. The services run two instances of an *asynchronous*
+Haskell handler *checkPeers* in every Nginx worker process when the workers
+start. The services has complementary *service update hooks* that run a Haskell
+handler *updatePeers* *synchronously* in the main Nginx thread when the service
+variable updates, i.e. every 5 (or up to 7) seconds as stated in values
+*interval* and *peerTimeout* in *constructor* *Conf*. Each service has an
+associated unique *key* specified before the *Conf* declaration: in this example
+keys are equal to the names of service variables. Besides time intervals, in
+constructor *Conf* a list of upstreams to check, an optional *endpoint* and an
+optional monitoring port where statistics about failed peers should be sent to
+are defined. Endpoints contain an URL on which health checks will test failed
+peers, and *passing rules* to describe in which cases failed peers must be
+regarded as valid again. Currently, only two kinds of passing rules are
+supported: *DefaultPassRule* (when a peer responds with *HTTP status 200*) and
+*PassRuleByHttpStatus*. Internally, *updatePeers* calls a C function that reads
+and updates Nginx data related to peer statuses.
 
 Do not hesitate to declare as many Haskell services as you want, because they
 are very cheap. When you have to check against a large number of upstreams, it
