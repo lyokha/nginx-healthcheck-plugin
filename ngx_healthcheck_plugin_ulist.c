@@ -1,3 +1,9 @@
+/* BEWARE: in this file a linked-list-based storage for failed upstreams is
+ * implemented. This was eventually superseded by an rb-tree-based storage,
+ * currently located in file ngx_healthcheck_plugin.c. Therefore, this file is
+ * no longer a part of the build process and held just in case.
+ */
+
 #include "ngx_healthcheck_plugin.h"
 
 struct upstream_list_s {
