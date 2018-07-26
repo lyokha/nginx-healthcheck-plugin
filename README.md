@@ -3,11 +3,11 @@ Active health checks and monitoring for Nginx upstreams
 
 **Disclaimer**: this is not an Nginx module in the traditional sense! It
 compiles to a shared library that gets loaded in Nginx using directive
-*haskell_run_service* from Nginx module
+`haskell_run_service` from Nginx module
 [*nginx-haskell-module*](https://github.com/lyokha/nginx-haskell-module). Let's
 call this *plugin*. The plugin provides support for active health checks and
 monitoring of peers in normal *per-worker* and *shared* upstreams (those
-declared with directive *zone*, possibly with dynamic peers), it supports all
+declared with directive `zone`, possibly with dynamic peers), it supports all
 kinds of balancing models present in Nginx (*round-robin*, *least_conn*, *hash*
 and so forth). Both health checks and monitoring are optional, meaning that they
 do not depend on each other, and one feature may be switched off while the other
@@ -19,11 +19,11 @@ What the active health checks here means
 Well, they are not completely *active*. They are active only in one direction.
 If all the peers in a checked upstream respond successfully then the active
 health check does nothing! Successfulness of a peer response is checked against
-the rules of directive *proxy_next_upstream* and settings in directive *server*.
+the rules of directive `proxy_next_upstream` and settings in directive `server`.
 This is quite standard in Nginx: a peer gets marked as *failed* when its
-*N* responses do not pass the *proxy_next_upstream* rules during time period of
+*N* responses do not pass the `proxy_next_upstream` rules during time period of
 *T*. Values of *N* and *T* are defined in arguments *max_fails* and
-*fail_timeout* in directive *server* respectively: by default they are equal to
+*fail_timeout* in directive `server` respectively: by default they are equal to
 *1* and *10s*. When a peer *fails*, it cannot be chosen for proxying requests
 during the next time period of *T*.
 
@@ -39,10 +39,11 @@ What the monitoring here means
 There are traditional *per-worker* and *shared* upstreams. Monitoring of
 traditional (or normal) upstreams is built in a dedicated *location* that
 returns a JSON object which contains a list of *failed* peers nested in
-*worker's PID -> health check service -> upstream* hierarchy. Monitoring of
+**worker's PID -> health check service -> upstream** hierarchy. Monitoring of
 shared upstreams is as well built in a dedicated location that returns a JSON
-object with a list of failed peers nested in *health check service -> upstream*
-hierarchy. The meaning of the *health check service* will be explained later.
+object with a list of failed peers nested in **health check service ->
+upstream** hierarchy. The meaning of the *health check service* will be
+explained later.
 
 Examples
 --------
@@ -147,23 +148,23 @@ http {
 ```
 
 In this configuration two *health check services* are declared: they are bound
-to *service variables* *\$hs_service_healthcheck* and
-*\$hs_service_healthcheck0*. The services run two instances of an *asynchronous*
-Haskell handler *checkPeers* in every Nginx worker process when the workers
-start. The services has complementary *service update hooks* that run a Haskell
-handler *updatePeers* *synchronously* in the main Nginx thread when the service
-variable updates, i.e. every 5 (or up to 7) seconds as stated in values
-*interval* and *peerTimeout* in *constructor* *Conf*. Each service has an
-associated unique *key* specified before the *Conf* declaration: in this example
-keys are equal to the names of service variables. Besides time intervals, in
-constructor *Conf* a list of upstreams to check, an optional *endpoint* and an
-optional monitoring port where statistics about failed peers should be sent to
-are defined. Endpoints contain an URL on which health checks will test failed
-peers, and *passing rules* to describe in which cases failed peers must be
-regarded as valid again. Currently, only two kinds of passing rules are
-supported: *DefaultPassRule* (when a peer responds with *HTTP status 200*) and
-*PassRuleByHttpStatus*. Internally, *updatePeers* calls a C function that reads
-and updates Nginx data related to peer statuses.
+to *service variables* `$hs_service_healthcheck` and `$hs_service_healthcheck0`.
+The services run two instances of an *asynchronous* Haskell handler `checkPeers`
+in every Nginx worker process when the workers start. The services has
+complementary *service update hooks* that run a Haskell handler `updatePeers`
+*synchronously* in the main Nginx thread when the service variable updates, i.e.
+every 5 (or up to 7) seconds as stated in values *interval* and *peerTimeout* in
+*constructor* *Conf*. Each service has an associated unique *key* specified
+before the *Conf* declaration: in this example keys are equal to the names of
+service variables. Besides time intervals, in constructor *Conf* a list of
+upstreams to check, an optional *endpoint* and an optional monitoring port where
+statistics about failed peers should be sent to are defined. Endpoints contain
+an URL on which health checks will test failed peers, and *passing rules* to
+describe in which cases failed peers must be regarded as valid again. Currently,
+only two kinds of passing rules are supported: *DefaultPassRule* (when a peer
+responds with *HTTP status 200*) and *PassRuleByHttpStatus*. Internally,
+`updatePeers` calls a C function that reads and updates Nginx data related to
+peer statuses.
 
 Do not hesitate to declare as many Haskell services as you want, because they
 are very cheap. When you have to check against a large number of upstreams, it
@@ -172,7 +173,7 @@ duration of the synchronous service hook.
 
 Monitoring service *statsServer* collects statistics of failed peers. This is a
 *shared* service because the associated service variable are declared as shared
-in directive *haskell_service_var_in_shm*, and therefore it runs on a single
+in directive `haskell_service_var_in_shm`, and therefore it runs on a single
 arbitrary Nginx worker all the time. Internally, it is implemented using [*Snap
 framework*](http://snapframework.com/). The server is bound to the local IP
 address *127.0.0.1* and only accessible from outside via a dedicated location
@@ -447,7 +448,7 @@ intact.
 
 The upstreams are now associated with a *shared memory zone*. The health check
 services become *shared*, the monitoring service gets replaced with a simple
-content handler *reportPeers* because peers are now shared between all Nginx
+content handler `reportPeers` because peers are now shared between all Nginx
 worker processes.
 
 Combinations of *only health checks / only monitoring* are built trivially like
@@ -503,7 +504,7 @@ Corner cases
         }
     ```
 
-  Directive *extend_single_peers* adds a fake peer only when an upstream part
+  Directive `extend_single_peers` adds a fake peer only when an upstream part
   (the main or the backup) contains a single peer.
 
 Building and installation
@@ -528,7 +529,7 @@ $ make
 This must create a cabal sandbox, then build all dependencies in it, compile C
 plugin, and finally compile and link shared library *ngx_healthcheck.so*. If all
 went well and the target machine is the same as the builder, then just copy the
-library in the directory that was specified in directive *haskell load*, i.e. in
+library in the directory that was specified in directive `haskell load`, i.e. in
 */var/lib/nginx*. If the target machine differs (and probably does not have
 *ghc* or Haskell packages installed) then you may need to collect all Haskell
 dependent libraries. Run
