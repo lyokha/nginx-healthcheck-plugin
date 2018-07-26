@@ -39,11 +39,10 @@ What the monitoring here means
 There are traditional *per-worker* and *shared* upstreams. Monitoring of
 traditional (or normal) upstreams is built in a dedicated *location* that
 returns a JSON object which contains a list of *failed* peers nested in
-**worker's PID &#8594; health check service &#8594; upstream** hierarchy.
-Monitoring of shared upstreams is as well built in a dedicated location that
-returns a JSON object with a list of failed peers nested in **health check
-service &#8594; upstream** hierarchy. The meaning of the *health check service*
-will be explained later.
+**worker's PID / health check service / upstream** hierarchy. Monitoring of
+shared upstreams is as well built in a dedicated location that returns a JSON
+object with a list of failed peers nested in **health check service / upstream**
+hierarchy. The meaning of the *health check service* will be explained later.
 
 Examples
 --------
