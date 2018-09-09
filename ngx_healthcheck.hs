@@ -2,7 +2,7 @@
 {-# LANGUAGE ViewPatterns, ScopedTypeVariables, TupleSections, NumDecimals #-}
 {-# LANGUAGE BangPatterns #-}
 
-module NgxHaskellUserRuntime where
+module NgxHealthcheck where
 
 import           NgxExport
 import           Network.HTTP.Client
