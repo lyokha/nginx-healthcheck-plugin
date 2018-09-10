@@ -527,11 +527,15 @@ $ make
 
 This must create a cabal sandbox, then build all dependencies in it, compile C
 plugin, and finally compile and link shared library *ngx_healthcheck.so*. If all
-went well and the target machine is the same as the builder, then just copy the
-library in the directory that was specified in directive `haskell load`, i.e. in
-*/var/lib/nginx*. If the target machine differs (and probably does not have
-*ghc* or Haskell packages installed) then you may need to collect all Haskell
-dependent libraries. Run
+went well, and the target machine is the same as the builder, then you may copy
+the library to the directory that is specified in directive `haskell load`, i.e.
+to */var/lib/nginx*. However, in many cases this simple approach won't work
+smoothly because of lack of access rights to the sandbox directories from the
+Nginx workers' owner (normally, *nginx*). Additionally, these directories are
+supposed to be deleted when running `make clean`.
+
+A better approach is to collect all dependent Haskell libraries in a single
+directory. Run
 
 ```ShellSession
 $ make hslibs
