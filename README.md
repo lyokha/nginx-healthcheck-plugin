@@ -529,13 +529,16 @@ This must create a cabal sandbox, then build all dependencies in it, compile C
 plugin, and finally compile and link shared library *ngx_healthcheck.so*. If all
 went well, and the target machine is the same as the builder, then you may copy
 the library to the directory that is specified in directive `haskell load`, i.e.
-to */var/lib/nginx*. However, in many cases this simple approach won't work
-smoothly because of lack of access rights to the sandbox directories from the
-Nginx workers' owner (normally, *nginx*). Additionally, these directories are
-supposed to be deleted when running `make clean`.
+*/var/lib/nginx*. However in many cases this simple approach won't work smoothly
+because of lack of access rights to the sandbox directories from the Nginx
+workers' owner (normally, *nginx*). Additionally, these directories are supposed
+to be deleted when running `make clean`.
 
 A better approach is to collect all dependent Haskell libraries in a single
-directory. Run
+directory. This approach suits well for remote deployment, even if the target
+system does not have *ghc* installed.
+
+Run
 
 ```ShellSession
 $ make hslibs
@@ -543,7 +546,18 @@ $ make hslibs
 
 and look into directory *hslibs/*: it should contain many shared libraries
 *ngx_healthcheck.so* depends on. The libraries must be copied to the target
-machine in a directory the dynamic linker is aware of.
+machine in a directory the dynamic linker is aware of. If the target directory
+is not known to the linker (say you want to install the libraries into directory
+*/var/lib/nginx/hslibs*), then *ngx_healthcheck.so* must be patched to provide
+corresponding *runpath*.
+
+```ShellSession
+$ export HSLIBS_INSTALL_DIR=/var/lib/nginx/hslibs
+$ make hslibs
+```
+
+This makes use of utility [*patchelf*](https://nixos.org/patchelf.html), so the
+latter must be available in your system.
 
 When the built objects and the cabal sandbox are no longer needed, run
 

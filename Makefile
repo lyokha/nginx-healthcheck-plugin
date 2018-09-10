@@ -5,6 +5,8 @@ GARBAGE  := ngx_healthcheck.hi ngx_healthcheck.o ngx_healthcheck_stub.h
 HSLIBS         ?= $(shell ldd $(TARGET) | $(FILTER_HS_LIBS))
 FILTER_HS_LIBS := sed -r '/^\s*libHS/!d; s/^(.*)\s+=>\s+(\S+).*/\2/'
 
+PATCHELF := patchelf
+
 all : $(TARGET)
 
 $(PLUGIN_O) : ngx_healthcheck_plugin.c
@@ -25,10 +27,22 @@ $(TARGET) : ngx_healthcheck.hs $(PLUGIN_O)
 	        -ignore-package regex-pcre -fforce-recomp
 
 hslibs: $(TARGET)
-	if [ -n "$(HSLIBS)" ] ;  \
+	if [ -n "$(HSLIBS)" ];   \
 	then                     \
-	    mkdir hslibs;        \
+	    mkdir -p hslibs;     \
 	    cp $(HSLIBS) hslibs; \
+	fi;                      \
+	if [ -n "${HSLIBS_INSTALL_DIR}" ];                                \
+	then                                                              \
+	    rpath=$$($(PATCHELF) --print-rpath $(TARGET));                \
+	    case $$rpath in                                               \
+	        ${HSLIBS_INSTALL_DIR}:*)                                  \
+	            echo "$(TARGET) has been already patched!";;          \
+	        *)                                                        \
+	            $(PATCHELF) --set-rpath ${HSLIBS_INSTALL_DIR}:$$rpath \
+	                $(TARGET);                                        \
+	            echo "$(TARGET) has been patched!";;                  \
+	    esac;                                                         \
 	fi
 
 .PHONY: clean
