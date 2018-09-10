@@ -553,7 +553,7 @@ corresponding *runpath*.
 
 ```ShellSession
 $ export HSLIBS_INSTALL_DIR=/var/lib/nginx/hslibs
-$ make hslibs
+$ make patchlib
 ```
 
 This makes use of utility [*patchelf*](https://nixos.org/patchelf.html), so the

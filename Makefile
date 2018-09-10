@@ -4,6 +4,7 @@ GARBAGE  := ngx_healthcheck.hi ngx_healthcheck.o ngx_healthcheck_stub.h
 
 HSLIBS         ?= $(shell ldd $(TARGET) | $(FILTER_HS_LIBS))
 FILTER_HS_LIBS := sed -r '/^\s*libHS/!d; s/^(.*)\s+=>\s+(\S+).*/\2/'
+HSLIBS_DIR     := hslibs
 
 PATCHELF := patchelf
 
@@ -26,29 +27,39 @@ $(TARGET) : ngx_healthcheck.hs $(PLUGIN_O)
 	         $(PLUGIN_O) ngx_healthcheck.hs -o $(TARGET)  \
 	        -ignore-package regex-pcre -fforce-recomp
 
-hslibs: $(TARGET)
-	if [ -n "$(HSLIBS)" ];   \
-	then                     \
-	    mkdir -p hslibs;     \
-	    cp $(HSLIBS) hslibs; \
-	fi;                      \
-	if [ -n "${HSLIBS_INSTALL_DIR}" ];                                \
-	then                                                              \
-	    rpath=$$($(PATCHELF) --print-rpath $(TARGET));                \
-	    case $$rpath in                                               \
-	        ${HSLIBS_INSTALL_DIR}:*)                                  \
-	            echo "$(TARGET) has been already patched!";;          \
-	        *)                                                        \
-	            $(PATCHELF) --set-rpath ${HSLIBS_INSTALL_DIR}:$$rpath \
-	                $(TARGET);                                        \
-	            echo "$(TARGET) has been patched!";;                  \
-	    esac;                                                         \
+$(HSLIBS_DIR) : $(TARGET)
+	if [ -n "$(HSLIBS)" ];             \
+	then                               \
+	    mkdir -p $(HSLIBS_DIR);        \
+	    cp -u $(HSLIBS) $(HSLIBS_DIR); \
+	    touch $(HSLIBS_DIR);           \
 	fi
 
-.PHONY: clean
+.PHONY: patchlib clean
+
+patchlib :
+	@if [ -n "${HSLIBS_INSTALL_DIR}" ];                                   \
+	then                                                                  \
+	    if [ -f $(TARGET) ];                                              \
+	    then                                                              \
+	        rpath=$$($(PATCHELF) --print-rpath $(TARGET));                \
+	        case $$rpath in                                               \
+	            ${HSLIBS_INSTALL_DIR}:*)                                  \
+	                echo "Library $(TARGET) has been already patched!";;  \
+	            *)                                                        \
+	                $(PATCHELF) --set-rpath ${HSLIBS_INSTALL_DIR}:$$rpath \
+	                    $(TARGET);                                        \
+	                echo "Library $(TARGET) has been patched!";;          \
+	        esac;                                                         \
+	    else                                                              \
+	        echo "Library $(TARGET) has not been built!";                 \
+	    fi;                                                               \
+	else                                                                  \
+	    echo "Environment variable HSLIBS_INSTALL_DIR is not set!";       \
+	fi
 
 clean :
 	rm -f $(GARBAGE) $(PLUGIN_O) $(TARGET)
 	cabal sandbox delete
-	rm -rf hslibs
+	rm -rf $(HSLIBS_DIR)
 
