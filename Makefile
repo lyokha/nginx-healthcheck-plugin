@@ -35,7 +35,7 @@ $(HSLIBS_DIR) : $(TARGET)
 	    touch $(HSLIBS_DIR);           \
 	fi
 
-.PHONY: patchlib clean
+.PHONY : patchlib clean
 
 patchlib :
 	@if [ -n "${HSLIBS_INSTALL_DIR}" ];                                   \
