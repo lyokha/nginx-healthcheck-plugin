@@ -27,18 +27,26 @@ $(TARGET) : ngx_healthcheck.hs $(PLUGIN_O)
 	         $(PLUGIN_O) ngx_healthcheck.hs -o $(TARGET)  \
 	        -ignore-package regex-pcre -fforce-recomp
 
+.SILENT : $(HSLIBS_DIR) patchlib
+
 $(HSLIBS_DIR) : $(TARGET)
-	if [ -n "$(HSLIBS)" ];             \
-	then                               \
-	    mkdir -p $(HSLIBS_DIR);        \
-	    cp -u $(HSLIBS) $(HSLIBS_DIR); \
-	    touch $(HSLIBS_DIR);           \
+	if [ -n "$(HSLIBS)" ];                                     \
+	then                                                       \
+	    mkdir -p $(HSLIBS_DIR);                                \
+	    cp -u $(HSLIBS) $(HSLIBS_DIR);                         \
+	    touch $(HSLIBS_DIR);                                   \
+	    libs=$$(ls $(HSLIBS_DIR));                             \
+	    echo "    Haskell libraries referenced in $(TARGET):"; \
+	    echo "$$libs";                                         \
+	    echo "    were copied to $(HSLIBS_DIR)";               \
+	else                                                       \
+	    echo "Haskell libraries were not found in $(TARGET)!"; \
 	fi
 
 .PHONY : patchlib clean
 
 patchlib :
-	@if [ -n "${HSLIBS_INSTALL_DIR}" ];                                   \
+	if [ -n "${HSLIBS_INSTALL_DIR}" ];                                    \
 	then                                                                  \
 	    if [ -f $(TARGET) ];                                              \
 	    then                                                              \
