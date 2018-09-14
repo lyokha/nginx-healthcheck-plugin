@@ -37,11 +37,8 @@ $(HSLIBS_DIR) : $(TARGET)
 	if [ -n "$(HSLIBS)" ];                                     \
 	then                                                       \
 	    mkdir -p "$(HSLIBS_DIR)";                              \
-	    cp -u $(HSLIBS) "$(HSLIBS_DIR)";                       \
+	    cp -uv $(HSLIBS) "$(HSLIBS_DIR)";                      \
 	    touch "$(HSLIBS_DIR)";                                 \
-	    echo "    Haskell libraries referenced in $(TARGET):"; \
-	    echo "$(HSLIBS)" | sed 's/ /\n/g';                     \
-	    echo "    were copied to directory $(HSLIBS_DIR)";     \
 	else                                                       \
 	    echo "Haskell libraries were not found in $(TARGET)!"; \
 	fi
@@ -61,8 +58,9 @@ patchlib :
 	                $(PATCHELF)                                          \
 	                    --set-rpath "${HSLIBS_INSTALL_DIR}:$$rpath"      \
 	                    $(TARGET);                                       \
-	                echo "Library $(TARGET) has been patched";;          \
+	                echo "Library $(TARGET) has been patched:";;         \
 	        esac;                                                        \
+	        $(PATCHELF) --print-rpath $(TARGET);                         \
 	    else                                                             \
 	        echo "Library $(TARGET) has not been built!";                \
 	    fi;                                                              \
