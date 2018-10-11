@@ -1,6 +1,5 @@
-{-# LANGUAGE TemplateHaskell, DeriveGeneric, OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell, OverloadedStrings, BangPatterns #-}
 {-# LANGUAGE ViewPatterns, ScopedTypeVariables, TupleSections, NumDecimals #-}
-{-# LANGUAGE BangPatterns #-}
 
 module NgxHealthcheck where
 
