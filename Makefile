@@ -6,6 +6,10 @@ PLUGIN_HS := $(BASE_NAME).hs
 TARGET    := $(BASE_NAME).so
 GARBAGE   := $(BASE_NAME).hi $(BASE_NAME).o $(BASE_NAME)_stub.h $(PLUGIN_O)
 
+CABAL_SANDBOX := cabal v1-sandbox
+CABAL_INSTALL := cabal v1-install
+CABAL_EXEC    := cabal v1-exec
+
 HSLIBS         ?= $(shell ldd $(TARGET) | $(FILTER_HS_LIBS))
 FILTER_HS_LIBS := sed -r '/^\s*libHS/!d; s/^(.*)\s+=>\s+(\S+).*/\2/'
 HSLIBS_DIR     := hslibs
@@ -22,9 +26,9 @@ $(PLUGIN_O) : $(PLUGIN_C)
 	    -I "${NGX_HOME}"/objs $(PLUGIN_C)
 
 $(TARGET) : $(PLUGIN_HS) $(PLUGIN_O)
-	cabal sandbox init
-	cabal install --only-dependencies
-	cabal exec --                                           \
+	$(CABAL_SANDBOX) init
+	$(CABAL_INSTALL) --only-dependencies
+	$(CABAL_EXEC) --                                        \
 	    ghc -Wall -O2 -dynamic -shared -fPIC                \
 	        -L"$(shell ghc --print-libdir)"/rts             \
 	        -lHSrts_thr-ghc"$(shell ghc --numeric-version)" \
@@ -70,6 +74,6 @@ patchlib :
 
 clean :
 	rm -f $(GARBAGE) $(TARGET)
-	cabal sandbox delete
+	$(CABAL_SANDBOX) delete
 	rm -rf "$(HSLIBS_DIR)"
 

@@ -24,7 +24,7 @@ plugin_ngx_http_haskell_healthcheck(void *cycle_data, void *umcf_data,
     ngx_http_upstream_main_conf_t   *umcf = umcf_data;
     volatile ngx_time_t             *ntime = ntime_data;
 
-    ngx_int_t                        i, len = 0;
+    ngx_uint_t                       i, len = 0;
     u_char                          *p, *p_prev;
     ngx_http_upstream_srv_conf_t   **uscf, *u = NULL;
     ngx_http_upstream_rr_peers_t    *peers = NULL, *backup_peers = NULL;
