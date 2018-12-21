@@ -45,7 +45,7 @@ import           Snap.Http.Server
 import           Snap.Core
 import           Safe
 
-foreign import ccall "exit" exit :: CInt -> IO ()
+foreign import ccall unsafe "exit" exit :: CInt -> IO ()
 
 type Upstream   = Text
 type Peer       = Text
@@ -250,7 +250,7 @@ readFlag "0" = 0
 readFlag "1" = 1
 readFlag _   = error "Should never happen (unreadable flag)!"
 
-foreign import ccall "plugin_ngx_http_haskell_healthcheck"
+foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck"
     c_healthcheck :: Ptr () -> Ptr () -> Ptr () -> CUIntPtr -> CUIntPtr ->
                      CString -> Ptr CString -> Ptr CSize -> IO CIntPtr
 
