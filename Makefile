@@ -6,9 +6,14 @@ PLUGIN_HS := $(BASE_NAME).hs
 TARGET    := $(BASE_NAME).so
 GARBAGE   := $(BASE_NAME).hi $(BASE_NAME).o $(BASE_NAME)_stub.h $(PLUGIN_O)
 
-CABAL_SANDBOX := cabal v1-sandbox
-CABAL_INSTALL := cabal v1-install
-CABAL_EXEC    := cabal v1-exec
+ifeq ($(shell cabal help v1-sandbox 2>/dev/null; echo $$?),0)
+    CABAL_CMD_PREFIX := v1-
+else
+    CABAL_CMD_PREFIX :=
+endif
+CABAL_SANDBOX := cabal $(CABAL_CMD_PREFIX)sandbox
+CABAL_INSTALL := cabal $(CABAL_CMD_PREFIX)install
+CABAL_EXEC    := cabal $(CABAL_CMD_PREFIX)exec
 
 HSLIBS         ?= $(shell ldd $(TARGET) | $(FILTER_HS_LIBS))
 FILTER_HS_LIBS := sed -r '/^\s*libHS/!d; s/^(.*)\s+=>\s+(\S+).*/\2/'
