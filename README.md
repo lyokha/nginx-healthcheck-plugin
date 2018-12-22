@@ -560,7 +560,7 @@ This makes use of utility [*patchelf*](https://nixos.org/patchelf.html), so the
 latter must be available in your system.
 
 When built objects, collected libraries, and the cabal sandbox are no longer
-needed run
+needed, run
 
 ```ShellSession
 $ make clean
