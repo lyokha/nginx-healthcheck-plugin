@@ -45,8 +45,6 @@ import           Snap.Http.Server
 import           Snap.Core
 import           Safe
 
-foreign import ccall unsafe "exit" exit :: CInt -> IO ()
-
 type Upstream   = Text
 type Peer       = Text
 type Url        = String
@@ -75,8 +73,8 @@ defaultPassRuleParams = PassRuleParams { responseHttpStatus = 200 }
 data TimeInterval = Hr Int
                   | Min Int
                   | Sec Int
-                  | HrMin (Int, Int)
-                  | MinSec (Int, Int)
+                  | HrMin Int Int
+                  | MinSec Int Int
                   deriving Read
 
 type ServiceKey = Text
@@ -121,7 +119,7 @@ getUrl skey url = do
         then -- using httpNoBody here makes Nginx backends claim about closed
              -- keepalive connections!
              getResponseStatus url $ flip httpLbs $ fromJust httpManager'
-        else error "Should never happen (no http manager)!"
+        else undefined
     where getResponseStatus u =
             fmap (statusCode . responseStatus) . (parseRequest u >>=)
 
@@ -132,19 +130,15 @@ query skey url = runKleisli $ arr id &&& Kleisli (getUrl skey . flip mkAddr url)
 catchBadResponse :: Peer -> IO (Peer, HttpStatus) -> IO (Peer, HttpStatus)
 catchBadResponse p = handle $ \(_ :: SomeException) -> return (p, 0)
 
--- return status 2 makes nginx master not respawn workers
-unreadableConfStatus :: CInt
-unreadableConfStatus = 2
-
 threadDelaySec :: Int -> IO ()
 threadDelaySec = threadDelay . (* 1e6)
 
 toSec :: TimeInterval -> Int
-toSec (Hr h)          = 3600 * h
-toSec (Min m)         = 60 * m
-toSec (Sec s)         = s
-toSec (HrMin (h, m))  = 3600 * h + 60 * m
-toSec (MinSec (m, s)) = 60 * m + s
+toSec (Hr h)       = 3600 * h
+toSec (Min m)      = 60 * m
+toSec (Sec s)      = s
+toSec (HrMin h m)  = 3600 * h + 60 * m
+toSec (MinSec m s) = 60 * m + s
 
 -- This is a small type casting hack: getting the first element of type time_t
 -- from a C struct
@@ -163,8 +157,11 @@ isActive skey = (skey `elem`) <$> readIORef active
 lookupServiceKey :: ServiceKey -> Map ServiceKey Peers -> Peers
 lookupServiceKey = (fromMaybe M.empty .) . M.lookup
 
+throwUserError :: String -> IO a
+throwUserError = ioError . userError
+
 throwWhenPeersUninitialized :: ServiceKey -> Peers -> IO ()
-throwWhenPeersUninitialized skey ps = when (M.null ps) $ error $
+throwWhenPeersUninitialized skey ps = when (M.null ps) $ throwUserError $
     "Peers were not initialized for service set " ++ T.unpack skey ++ "!"
 
 reportStats :: Int -> (Int32, ServiceKey, Peers) -> IO ()
@@ -178,7 +175,7 @@ reportStats ssp v@(_, skey, _) = do
                             , Network.HTTP.Client.path = "report"
                             }
             void $ httpNoBody req' $ fromJust httpManager'
-        else error "Should never happen (no http manager)!"
+        else undefined
 
 checkPeers :: ByteString -> Bool -> IO L.ByteString
 checkPeers cf fstRun = do
@@ -187,7 +184,8 @@ checkPeers cf fstRun = do
     cf'' <- M.lookup skey' <$> readIORef conf >>=
         maybe (do
                   let cf'' = readMay $ C8.unpack cf'
-                  when (isNothing cf'') $ exit unreadableConfStatus
+                  when (isNothing cf'') $ throwIO $
+                      TerminateWorkerProcess "Unreadable peers configuration!"
                   let cf''' = fromJust cf''
                   atomicModifyIORef' conf $ (, ()) . M.insert skey' cf'''
                   return cf'''
@@ -248,7 +246,8 @@ ngxExportServiceIOYY 'checkPeers
 readFlag :: ByteString -> CUIntPtr
 readFlag "0" = 0
 readFlag "1" = 1
-readFlag _   = error "Should never happen (unreadable flag)!"
+readFlag ""  = error "Unexpectedly empty check peers flag!"
+readFlag x   = error $ "Unexpected check peers flag " ++ C8.unpack x ++ "!"
 
 foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck"
     c_healthcheck :: Ptr () -> Ptr () -> Ptr () -> CUIntPtr -> CUIntPtr ->
@@ -303,7 +302,7 @@ updatePeers (C8.lines -> ls)
                                    ,"] from service set ", skey''
                                    ," have failed to process"
                                    ]
-    | otherwise = error "Should never happen (parse error)!"
+    | otherwise = throwUserError "Parse error when reading saved peers data!"
 ngxExportServiceHook 'updatePeers
 
 ssConfig :: Int -> Config Snap a
@@ -321,7 +320,7 @@ ssHandler = route [("report", Snap.Core.method POST receiveStats)
 receiveStats :: Snap ()
 receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
     (decode' -> !s) <- readRequestBody 65536
-    when (isNothing s) $ error "Unreadable stats"
+    when (isNothing s) $ liftIO $ throwUserError "Unreadable stats!"
     liftIO $ do
         let (pid, skey, ps) = fromJust s
         !t <- now
@@ -367,7 +366,9 @@ statsServer cf fstRun = do
     cf' <- readIORef ssConf >>=
         maybe (do
                   let cf' = readMay $ C8.unpack cf
-                  when (isNothing cf') $ exit unreadableConfStatus
+                  when (isNothing cf') $ throwIO $
+                      TerminateWorkerProcess
+                          "Unreadable stats server configuration!"
                   atomicWriteIORef ssConf cf'
                   return $ fromJust cf'
               ) return
