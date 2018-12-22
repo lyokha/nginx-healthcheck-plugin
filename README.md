@@ -565,5 +565,11 @@ When built objects and the cabal sandbox are no longer needed, run
 $ make clean
 ```
 
-to delete them all.
+to delete them all. Or run
+
+```ShellSession
+$ make lenient-clean
+```
+
+to delete all except the sandbox.
 

@@ -23,7 +23,13 @@ PATCHELF := patchelf
 
 all : $(TARGET)
 
-$(PLUGIN_O) : check_ngx_home $(PLUGIN_C)
+$(PLUGIN_O) : $(PLUGIN_C)
+	@if [ -z "${NGX_HOME}" ];                             \
+	then                                                  \
+	    echo "Environment variable NGX_HOME is not set!"; \
+	    echo "Building C plugin will probably fail!";     \
+	    echo;                                             \
+	fi
 	gcc -Wall -O2 -fPIC -c -o $(PLUGIN_O)                               \
 	    -I "${NGX_HOME}"/src/core          -I "${NGX_HOME}"/src/http    \
 	    -I "${NGX_HOME}"/src/http/modules  -I "${NGX_HOME}"/src/event   \
@@ -40,7 +46,7 @@ $(TARGET) : $(PLUGIN_HS) $(PLUGIN_O)
 	         $(PLUGIN_O) $(PLUGIN_HS) -o $(TARGET)          \
 	        -ignore-package regex-pcre -fforce-recomp
 
-.SILENT : $(HSLIBS_DIR) patchlib check_ngx_home
+.SILENT : $(HSLIBS_DIR) patchlib
 
 $(HSLIBS_DIR) : $(TARGET)
 	if [ -n "$(HSLIBS)" ];                                     \
@@ -52,7 +58,7 @@ $(HSLIBS_DIR) : $(TARGET)
 	    echo "Haskell libraries were not found in $(TARGET)!"; \
 	fi
 
-.PHONY : patchlib check_ngx_home clean
+.PHONY : patchlib clean lenient-clean
 
 patchlib :
 	if [ -n "${HSLIBS_INSTALL_DIR}" ];                                   \
@@ -77,16 +83,12 @@ patchlib :
 	    echo "Environment variable HSLIBS_INSTALL_DIR is not set!";      \
 	fi
 
-check_ngx_home :
-	if [ -z "${NGX_HOME}" ];                              \
-	then                                                  \
-	    echo "Environment variable NGX_HOME is not set!"; \
-	    echo "Building C plugin will probably fail!";     \
-	    echo;                                             \
-	fi;                                                   \
-
 clean :
 	rm -f $(GARBAGE) $(TARGET)
 	$(CABAL_SANDBOX) delete
+	rm -rf "$(HSLIBS_DIR)"
+
+lenient-clean :
+	rm -f $(GARBAGE) $(TARGET)
 	rm -rf "$(HSLIBS_DIR)"
 
