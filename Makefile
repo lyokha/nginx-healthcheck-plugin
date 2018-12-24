@@ -6,7 +6,7 @@ PLUGIN_HS := $(BASE_NAME).hs
 TARGET    := $(BASE_NAME).so
 GARBAGE   := $(BASE_NAME).hi $(BASE_NAME).o $(BASE_NAME)_stub.h $(PLUGIN_O)
 
-ifeq ($(shell cabal help v1-sandbox 2>/dev/null; echo $$?),0)
+ifeq ($(shell cabal help v1-sandbox 2>&1 >/dev/null; echo $$?),0)
     CABAL_CMD_PREFIX := v1-
 else
     CABAL_CMD_PREFIX :=
