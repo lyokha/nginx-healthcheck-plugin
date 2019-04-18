@@ -1,5 +1,5 @@
 name:                ngx-healthcheck
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Active health check and monitor for Nginx backends
 description:         Active health check and monitor for Nginx backends
 author:              Alexey Radkov <alexey.radkov@gmail.com>
@@ -10,7 +10,7 @@ cabal-version:       >= 1.10
 
 library
   build-depends:     base >=4.8 && <5
-                   , ngx-export >= 1.4.1
+                   , ngx-export >= 1.7.1
                    , http-client
                    , http-types
                    , containers

@@ -16,7 +16,6 @@ import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Exception
 import           Control.Exception.Enclosed (handleAny)
-import           System.Posix.Process
 import           System.IO.Unsafe
 import           Data.IORef
 import           Data.ByteString (ByteString)
@@ -215,7 +214,7 @@ checkPeers cf fstRun = do
     peers' <- lookupServiceKey skey' <$> readIORef peers
     throwWhenPeersUninitialized skey' peers'
     when (isJust ssp) $ do
-        (fromIntegral -> pid) <- getProcessID
+        (fromIntegral -> pid) <- ngxCachedPid
         void $ async $ reportStats (fromJust ssp)
             (pid, skey', M.filter (not . null) peers')
     let concatResult = L.fromStrict . B.concat
