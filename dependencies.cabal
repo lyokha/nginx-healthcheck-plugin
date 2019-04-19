@@ -16,7 +16,6 @@ library
                    , containers
                    , async
                    , enclosed-exceptions
-                   , unix
                    , bytestring
                    , vector
                    , text
