@@ -537,7 +537,7 @@ directory be */var/lib/nginx/hslibs/*, you may need to patch the resulting
 shared library with *make patchlib*, see below).
 
 ```ShellSession
-$ ./configure ... --add-dynamic-module=/path/to/this-plugin/sources
+$ ./configure --add-dynamic-module=/path/to/this-plugin/sources
 $ make modules
 $ cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
 ```
