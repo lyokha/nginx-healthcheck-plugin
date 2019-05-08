@@ -26,7 +26,6 @@ Table of contents
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
 
-
 What the active health checks here means
 ----------------------------------------
 
