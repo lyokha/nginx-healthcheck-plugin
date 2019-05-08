@@ -13,6 +13,20 @@ and so forth). Both health checks and monitoring are optional, meaning that they
 do not depend on each other, and one feature may be switched off while the other
 is on.
 
+Table of contents
+-----------------
+
+- [What the active health checks here means](#what-the-active-health-checks-here-means)
+- [What the monitoring here means](#what-the-monitoring-here-means)
+- [Examples](#examples)
+    + [Normal upstreams, health checks and monitoring](#normal-upstreams-health-checks-and-monitoring)
+    + [Normal upstreams, only health checks](#normal-upstreams-only-health-checks)
+    + [Normal upstreams, only monitoring](#normal-upstreams-only-monitoring)
+    + [Shared upstreams, health checks and monitoring](#shared-upstreams-health-checks-and-monitoring)
+- [Corner cases](#corner-cases)
+- [Building and installation](#building-and-installation)
+
+
 What the active health checks here means
 ----------------------------------------
 
