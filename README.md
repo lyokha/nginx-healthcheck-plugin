@@ -530,14 +530,15 @@ $ make
 ```
 
 For the second build option, go to the directory with Nginx sources, run
-*configure* with option *--add-dynamic-module=/path/to/this-plugin/sources*,
-then *make modules* and copy the built library (probably as root) to some
-directory where this can be loaded by the plugin in the run-time (let this
-directory be */var/lib/nginx/hslibs/*, you may need to patch the resulting
-shared library with *make patchlib*, see below).
+*configure* with option
+*--add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources*, then *make
+modules* and copy the built library (probably as root) to some directory where
+this can be loaded by the plugin in the run-time (let this directory be
+*/var/lib/nginx/hslibs/*, you may need to patch the resulting shared library
+with *make patchlib*, see below).
 
 ```ShellSession
-$ ./configure --add-dynamic-module=/path/to/this-plugin/sources
+$ ./configure --add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources
 $ make modules
 $ cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
 ```
