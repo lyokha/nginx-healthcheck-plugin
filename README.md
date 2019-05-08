@@ -514,7 +514,7 @@ The plugin contains Haskell and C parts, and thus requires *ghc*, *cabal*,
 C plugin. There are two options for that: static compilation and linkage with
 the resulting shared library, and building an Nginx dynamic module.
 
-For the first build option, environment variable `NGX_HOME` with the directory
+For the first build option, environment variable *NGX_HOME* with the directory
 where Nginx sources are located must be set.
 
 ```ShellSession
@@ -545,7 +545,7 @@ $ cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plu
 Notice that we added prefix *lib* to the module's name!
 
 Then go back to this plugin's directory, set environment variable
-`NGX_MODULE_PATH`, and build the plugin just like in the first build option.
+*NGX_MODULE_PATH*, and build the plugin just like in the first build option.
 
 ```ShellSession
 $ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
@@ -560,8 +560,8 @@ the same as the builder, then you may copy the library to the directory that is
 specified in directive `haskell load`, i.e. */var/lib/nginx/*. However, in many
 cases this simple approach won't work smoothly because of lack of access rights
 to the sandbox directories from the Nginx workers' owner (normally, *nginx*).
-Additionally, these directories are supposed to be deleted when running `make
-clean`.
+Additionally, these directories are supposed to be deleted when running *make
+clean*.
 
 A better approach is to collect all dependent Haskell libraries in a single
 directory. This approach suits well for remote deployment, even if the target
