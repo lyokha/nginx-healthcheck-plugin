@@ -28,7 +28,7 @@ This is quite standard in Nginx: a peer gets marked as *failed* when its
 during the next time period of *T*.
 
 And here the active health checks come into play! They merely move the time of
-the last check of failed peers forward periodically, say every 5 seconds, which
+the last check of failed peers forward periodically, say, every 5 seconds, which
 makes Nginx unable to return them back to the valid peers. So, do they keep
 staying failed forever? No! The active health check tests them every those 5
 seconds against its own rules and recover them when the check passes.
@@ -509,30 +509,59 @@ Corner cases
 Building and installation
 -------------------------
 
-This is not straightforward yet. The plugin contains Haskell and C parts, and
-thus requires *ghc*, *cabal*, *gcc*, and a directory with Nginx sources.
-Basically, you need to export this Nginx home directory like
+The plugin contains Haskell and C parts, and thus requires *ghc*, *cabal*,
+*gcc*, and a directory with Nginx sources. The most tricky part is building the
+C plugin. There are two options for that: static compilation and linkage with
+the resulting shared library, and building an Nginx dynamic module.
+
+For the first build option, environment variable `NGX_HOME` with the directory
+where Nginx sources are located must be set.
 
 ```ShellSession
 $ export NGX_HOME=/path/to/Nginx/sources
 ```
 
-and then run *cabal update* (optionally, when the list of Haskell packages has
-never been built or is too old), and *make*.
+Then run *cabal update* (optionally, when the list of Haskell packages has never
+been built or is too old), and *make*.
 
 ```ShellSession
 $ cabal update
 $ make
 ```
 
-This must create a cabal sandbox, then build all dependencies in it, compile C
-plugin, and finally compile and link shared library *ngx_healthcheck.so*. If all
-went well, and the target machine is the same as the builder, then you may copy
-the library to the directory that is specified in directive `haskell load`, i.e.
-*/var/lib/nginx/*. However in many cases this simple approach won't work
-smoothly because of lack of access rights to the sandbox directories from the
-Nginx workers' owner (normally, *nginx*). Additionally, these directories are
-supposed to be deleted when running `make clean`.
+For the second build option, go to the directory with Nginx sources, run
+*configure* with option *--add-dynamic-module=/path/to/this-plugin/sources*,
+then *make modules* and copy the built library (probably as root) to some
+directory where this can be loaded by the plugin in the run-time (let this
+directory be */var/lib/nginx/hslibs/*, you may need to patch the resulting
+shared library with *make patchlib*, see below).
+
+```ShellSession
+$ ./configure ... --add-dynamic-module=/path/to/this-plugin/sources
+$ make modules
+$ cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
+```
+
+Notice that we added prefix *lib* to the module's name!
+
+Then go back to this plugin's directory, set environment variable
+`NGX_MODULE_PATH`, and build the plugin just like in the first build option.
+
+```ShellSession
+$ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
+$ cabal update
+$ make
+```
+
+This must create a cabal sandbox, then build all dependencies in it, compile the
+C plugin (if the first build option was chosen), and finally compile and link
+shared library *ngx_healthcheck.so*. If all went well, and the target machine is
+the same as the builder, then you may copy the library to the directory that is
+specified in directive `haskell load`, i.e. */var/lib/nginx/*. However, in many
+cases this simple approach won't work smoothly because of lack of access rights
+to the sandbox directories from the Nginx workers' owner (normally, *nginx*).
+Additionally, these directories are supposed to be deleted when running `make
+clean`.
 
 A better approach is to collect all dependent Haskell libraries in a single
 directory. This approach suits well for remote deployment, even if the target
@@ -547,9 +576,9 @@ $ make hslibs
 and look into directory *hslibs/*: it should contain many shared libraries
 *ngx_healthcheck.so* depends on. The libraries must be copied to the target
 machine in a directory the dynamic linker is aware of. If the target directory
-is not known to the linker (say you want to install the libraries into directory
-*/var/lib/nginx/hslibs/*), then *ngx_healthcheck.so* must be patched to provide
-corresponding *runpath*.
+is not known to the linker (say, you want to install the libraries into
+directory */var/lib/nginx/hslibs/*), then *ngx_healthcheck.so* must be patched
+to provide corresponding *runpath*.
 
 ```ShellSession
 $ export HSLIBS_INSTALL_DIR=/var/lib/nginx/hslibs
