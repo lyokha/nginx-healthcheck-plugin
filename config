@@ -1,0 +1,19 @@
+ngx_addon_name=ngx_healthcheck_plugin
+
+if [ "$ngx_module_link" = DYNAMIC ]; then
+    ngx_module_type=MISC
+    ngx_module_name=$ngx_addon_name
+
+    NGX_HTTP_HASKELL_MODULE_SRCS="                                          \
+            $ngx_addon_dir/ngx_healthcheck_plugin_module_api.c              \
+            $ngx_addon_dir/ngx_healthcheck_plugin.c                         \
+            "
+    ngx_module_srcs="$NGX_HTTP_HASKELL_MODULE_SRCS"
+
+    . auto/module
+else
+    echo -n "$0: error: $ngx_addon_name must be compiled as a dynamic module, "
+    echo    "use option --add-dynamic-module for that!"
+    exit 1
+fi
+

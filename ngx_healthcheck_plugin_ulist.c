@@ -1,10 +1,11 @@
 /* BEWARE: in this file a linked-list-based storage for failed upstreams is
- * implemented. This was eventually superseded by an rb-tree-based storage,
- * currently located in file ngx_healthcheck_plugin.c. Therefore, this file is
- * no longer a part of the build process and held just in case.
+ * implemented. This was eventually superseded by an rb-tree-based storage
+ * located in file ngx_healthcheck_plugin.c. Therefore, this file is no longer
+ * a part of the build process and held just in case.
  */
 
-#include "ngx_healthcheck_plugin.h"
+#include <ngx_core.h>
+#include <ngx_http.h>
 
 struct upstream_list_s {
     ngx_str_t                name;
@@ -15,6 +16,10 @@ struct upstream_list_s {
 typedef struct upstream_list_s upstream_list_t;
 
 static upstream_list_t  *upstreams;
+
+ngx_int_t plugin_ngx_http_haskell_healthcheck(void *cycle_data, void *umcf_data,
+    volatile void *ntime_data, ngx_uint_t check_peers_in, ngx_uint_t active,
+    u_char *peers_in, u_char **peers_out, size_t *peers_len);
 
 static void plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle,
     time_t now, ngx_http_upstream_rr_peer_t *peer, ngx_uint_t good);

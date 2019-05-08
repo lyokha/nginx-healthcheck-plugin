@@ -1,7 +1,8 @@
 BASE_NAME := ngx_healthcheck
 
-PLUGIN_C  := $(BASE_NAME)_plugin.c
-PLUGIN_O  := $(BASE_NAME)_plugin.o
+PLUGIN    := $(BASE_NAME)_plugin
+PLUGIN_C  := $(PLUGIN).c
+PLUGIN_O  := $(PLUGIN).o
 PLUGIN_HS := $(BASE_NAME).hs
 TARGET    := $(BASE_NAME).so
 GARBAGE   := $(BASE_NAME).hi $(BASE_NAME).o $(BASE_NAME)_stub.h $(PLUGIN_O)
@@ -21,6 +22,15 @@ HSLIBS_DIR     := hslibs
 
 PATCHELF := patchelf
 
+TARGET_DEPS := $(PLUGIN_HS)
+TARGET_LINK := $(PLUGIN_O)
+
+ifdef NGX_MODULE_PATH
+    TARGET_LINK := -L${NGX_MODULE_PATH} -l$(PLUGIN)
+else
+    TARGET_DEPS += $(PLUGIN_O)
+endif
+
 all : $(TARGET)
 
 $(PLUGIN_O) : $(PLUGIN_C)
@@ -36,14 +46,14 @@ $(PLUGIN_O) : $(PLUGIN_C)
 	    -I "${NGX_HOME}"/src/event/modules -I "${NGX_HOME}"/src/os/unix \
 	    -I "${NGX_HOME}"/objs $(PLUGIN_C)
 
-$(TARGET) : $(PLUGIN_HS) $(PLUGIN_O)
+$(TARGET) : $(TARGET_DEPS)
 	$(CABAL_SANDBOX) init
 	$(CABAL_INSTALL) --only-dependencies
 	$(CABAL_EXEC) --                                        \
 	    ghc -Wall -O2 -dynamic -shared -fPIC                \
 	        -L"$(shell ghc --print-libdir)"/rts             \
 	        -lHSrts_thr-ghc"$(shell ghc --numeric-version)" \
-	         $(PLUGIN_O) $(PLUGIN_HS) -o $(TARGET)          \
+	         $(TARGET_LINK) $(PLUGIN_HS) -o $(TARGET)       \
 	        -ignore-package regex-pcre -fforce-recomp
 
 .SILENT : $(HSLIBS_DIR) patchlib

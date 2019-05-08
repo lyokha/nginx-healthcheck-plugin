@@ -1,4 +1,5 @@
-#include "ngx_healthcheck_plugin.h"
+#include <ngx_core.h>
+#include <ngx_http.h>
 
 typedef struct {
     ngx_str_node_t  sn;
@@ -7,6 +8,10 @@ typedef struct {
 
 static ngx_rbtree_t       *upstreams_rbt;
 static ngx_rbtree_node_t   upstreams_snt;
+
+ngx_int_t plugin_ngx_http_haskell_healthcheck(void *cycle_data, void *umcf_data,
+    volatile void *ntime_data, ngx_uint_t check_peers_in, ngx_uint_t active,
+    u_char *peers_in, u_char **peers_out, size_t *peers_len);
 
 static void plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle,
     time_t now, ngx_http_upstream_rr_peer_t *peer, ngx_uint_t good);
