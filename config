@@ -4,11 +4,11 @@ if [ "$ngx_module_link" = DYNAMIC ]; then
     ngx_module_type=MISC
     ngx_module_name=$ngx_addon_name
 
-    NGX_HTTP_HASKELL_MODULE_SRCS="                                          \
+    NGX_HTTP_HEALTHCHECK_PLUGIN_SRCS="                                      \
             $ngx_addon_dir/ngx_healthcheck_plugin_module_api.c              \
             $ngx_addon_dir/ngx_healthcheck_plugin.c                         \
             "
-    ngx_module_srcs="$NGX_HTTP_HASKELL_MODULE_SRCS"
+    ngx_module_srcs="$NGX_HTTP_HEALTHCHECK_PLUGIN_SRCS"
 
     . auto/module
 else
