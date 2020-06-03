@@ -573,9 +573,9 @@ shared library *ngx_healthcheck.so*. If all went well, and the target machine is
 the same as the builder, then you may copy the library to the directory that is
 specified in directive `haskell load`, i.e. */var/lib/nginx/*. However, in many
 cases this simple approach won't work smoothly because of lack of access rights
-to the sandbox directories from the Nginx workers' owner (normally, *nginx*).
-Additionally, these directories are supposed to be deleted when running *make
-clean*.
+to the sandbox directories from the Nginx workers' owner (normally, *nginx* or
+*nobody*). Additionally, these directories are supposed to be deleted when
+running *make clean*.
 
 A better approach is to collect all dependent Haskell libraries in a single
 directory. This approach suits well for remote deployment, even if the target

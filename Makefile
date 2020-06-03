@@ -48,7 +48,7 @@ $(PLUGIN_O) : $(PLUGIN_C)
 
 $(TARGET) : $(TARGET_DEPS)
 	$(CABAL_SANDBOX) init
-	$(CABAL_INSTALL) --only-dependencies
+	$(CABAL_INSTALL)
 	$(CABAL_EXEC) --                                        \
 	    ghc -Wall -O2 -dynamic -shared -fPIC                \
 	        -L"$(shell ghc --print-libdir)"/rts             \
