@@ -1,5 +1,5 @@
-Active health checks and monitoring for Nginx upstreams
-=======================================================
+Active health checks and monitoring of Nginx upstreams
+======================================================
 
 **Disclaimer**: this is not an Nginx module in the traditional sense! It
 compiles to a shared library that gets loaded in Nginx using directive
