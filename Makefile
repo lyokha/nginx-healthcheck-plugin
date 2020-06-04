@@ -51,10 +51,9 @@ $(TARGET) : $(TARGET_DEPS)
 	$(CABAL_INSTALL)
 	$(CABAL_EXEC) --                                        \
 	    ghc -Wall -O2 -dynamic -shared -fPIC                \
-	        -L"$(shell ghc --print-libdir)"/rts             \
 	        -lHSrts_thr-ghc"$(shell ghc --numeric-version)" \
 	         $(TARGET_LINK) $(PLUGIN_HS) -o $(TARGET)       \
-	        -ignore-package regex-pcre -fforce-recomp
+	        -fforce-recomp
 
 .SILENT : $(HSLIBS_DIR) patchlib
 

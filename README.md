@@ -25,6 +25,7 @@ Table of contents
     + [Shared upstreams, health checks and monitoring](#shared-upstreams-health-checks-and-monitoring)
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
+    + [Building module NgxExport.Healthcheck](#building-module-ngxexporthealthcheck)
 
 What the active health checks here means
 ----------------------------------------
@@ -545,15 +546,20 @@ $ make
 For the second build option, go to the directory with Nginx sources, run
 *configure* with option
 *--add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources*, then *make
-modules* and copy the built library (probably as root) to some directory where
-this can be loaded by the plugin in the run-time (let this directory be
-*/var/lib/nginx/hslibs/*, you may need to patch the resulting shared library
-with *make patchlib*, see below).
+modules* and copy the built library to some directory where this can be loaded
+by the plugin in the run-time (let this directory be */var/lib/nginx/hslibs/*,
+you may need to patch the resulting shared library with *make patchlib*, see
+below).
 
 ```ShellSession
 $ ./configure --add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources
 $ make modules
-$ cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
+```
+
+Copy the plugin into the target directory being a superuser.
+
+```ShellSession
+# cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
 ```
 
 Notice that we added prefix *lib* to the module's name!
@@ -616,4 +622,59 @@ $ make lenient-clean
 ```
 
 to delete all except the sandbox.
+
+### Building module NgxExport.Healthcheck
+
+When building a custom Haskell library with the health check functionality, a
+separate Haskell health check module is required. It is easy to build and
+install the module with command
+
+```ShellSession
+$ cabal --ignore-sandbox v1-install
+```
+
+(you may prefer the *new-style* cabal command *v2-install*). Then, in the custom
+library, import the module.
+
+```haskell
+import NgxExport.Healthcheck ()
+```
+
+When building the shared library, link it to the C code. The easiest way to
+achieve this goal is using the second build option with variable
+*NGX_MODULE_PATH* as it was explained previously. Let the name of the source
+file of the shared library be *custom.hs*.
+
+```ShellSession
+$ ghc -Wall -O2 -dynamic -shared -fPIC -lHSrts_thr-ghc$(ghc --numeric-version) -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
+```
+
+It's time to collect all dependent libraries, patch *custom.so*, and install
+everything: they are the same steps as when doing *make hslibs* and *make
+patchlib*, but this time we are going to use utility
+[*hslibdeps*](https://github.com/lyokha/nginx-haskell-module/blob/master/utils/README.md#utility-hslibdeps).
+
+```ShellSession
+$ hslibdeps -t $HSLIBS_INSTALL_DIR custom.so
+```
+
+If values of *HSLIBS_INSTALL_DIR* and *NGX_MODULE_PATH* differ then the second
+path must be added too.
+
+```ShellSession
+$ hslibdeps -t $NGX_MODULE_PATH custom.so
+```
+
+Copy library *custom.so* into directory */var/lib/nginx/* (this must correspond
+to the directory specified in Nginx directive *haskell load*) being a superuser.
+
+```ShellSession
+# cp custom.so /var/lib/nginx
+```
+
+Then copy all dependent Haskell libraries into the target directory.
+
+```ShellSession
+# cp -v .hslibs/* $HSLIBS_INSTALL_DIR
+```
 
