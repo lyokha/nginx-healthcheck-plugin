@@ -524,8 +524,8 @@ Building and installation
 -------------------------
 
 The plugin contains Haskell and C parts, and thus requires *ghc*, *cabal*,
-*gcc*, and a directory with Nginx sources. The most tricky part is building the
-C plugin. There are two options for that: static compilation and linkage with
+*gcc*, and a directory with Nginx sources. The trickiest part is building the C
+plugin. There are two options for that: static compilation and linkage against
 the resulting shared library, and building an Nginx dynamic module.
 
 For the first build option, environment variable *NGX_HOME* with the directory
@@ -640,7 +640,7 @@ library, import the module.
 import NgxExport.Healthcheck ()
 ```
 
-When building the shared library, link it to the C code. The easiest way to
+When building the shared library, link it against the C code. The easiest way to
 achieve this goal is using the second build option with variable
 *NGX_MODULE_PATH* as it was explained previously. Let the name of the source
 file of the shared library be *custom.hs*.
