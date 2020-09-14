@@ -163,7 +163,7 @@ http {
 In this configuration two *health check services* are declared: they are bound
 to *service variables* `$hs_service_healthcheck` and `$hs_service_healthcheck0`.
 The services run two instances of an *asynchronous* Haskell handler `checkPeers`
-in every Nginx worker process when the workers start. The services has
+in every Nginx worker process when the workers start. The services have
 complementary *service update hooks* that run a Haskell handler `updatePeers`
 *synchronously* in the main Nginx thread when the service variable updates, i.e.
 every 5 (or up to 7) seconds as stated in values *interval* and *peerTimeout* in
