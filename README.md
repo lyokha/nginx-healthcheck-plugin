@@ -532,27 +532,44 @@ upstreams to check.
 
 ```nginx
     haskell_run_service simpleService_makeRequest $hs_check_u_backend
-            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend"}';
+            '{"uri": "http://127.0.0.1:8010/Local/check/0/u_backend"}';
 
     haskell_run_service simpleService_makeRequest $hs_check_u_backend0
-            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend0"}';
+            '{"uri": "http://127.0.0.1:8010/Local/check/0/u_backend0"}';
 
     haskell_run_service simpleService_makeRequest $hs_check_u_backend1
-            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend1"}';
+            '{"uri": "http://127.0.0.1:8010/Local/check/0/u_backend1"}';
 ```
 
-Location */Local/check* shall proxy to the specified upstream.
+Sadly, a subrequest may come to an arbitrary worker process which means that
+there is no guarantee that faulty peers in *normal* upstreams will be checked in
+all workers processes! But this is not the case for *shared* upstreams.
+
+Location */Local/check/0/* shall proxy to the specified upstream.
 
 ```nginx
-        location ~ ^/Local/check/(.+) {
+        location ~ ^/Local/check/0/(.+) {
             allow 127.0.0.1;
             deny all;
-            proxy_pass http://$1;
+            haskell_run_async makeSubrequest $hs_subrequest
+                    '{"uri": "http://127.0.0.1:8010/Local/check/1/$1"}';
+            return 200;
+        }
+
+        location ~ ^/Local/check/1/(.+) {
+            allow 127.0.0.1;
+            deny all;
+            proxy_pass http://$1/healthcheck;
         }
 ```
 
-For shared upstreams the periodic check services can be made shared, in which
-case the corresponding service variables must be added into the list of
+The intermediate *makeSubrequest* catches possible *5xx* and other bad HTTP
+statuses received from the upstream to prevent the periodic checks from throwing
+exceptions. Additionally, checking the response status can be used for alerting
+that all servers in the upstream have failed.
+
+For shared upstreams the periodic check services can be made shared as well, in
+which case the corresponding service variables must be added into the list of
 directive *haskell_service_var_in_shm*.
 
 Corner cases
