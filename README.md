@@ -23,10 +23,10 @@ Table of contents
     + [Normal upstreams, only health checks](#normal-upstreams-only-health-checks)
     + [Normal upstreams, only monitoring](#normal-upstreams-only-monitoring)
     + [Shared upstreams, health checks and monitoring](#shared-upstreams-health-checks-and-monitoring)
+- [Periodic checks of healthy peers](#periodic-checks-of-healthy-peers)
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
     + [Building module NgxExport.Healthcheck](#building-module-ngxexporthealthcheck)
-- [Periodic checks of healthy peers](#periodic-checks-of-healthy-peers)
 
 What the active health checks here means
 ----------------------------------------
@@ -489,6 +489,72 @@ Below is a sample stats output for shared upstreams.
 }
 ```
 
+Periodic checks of healthy peers
+--------------------------------
+
+The plugin checks periodically only faulty peers. Healthy peers become faulty
+if they do not pass the standard Nginx rules, but this may happen only when
+client requests trigger forwarding to the corresponding upstreams. Sometimes, it
+makes sense to check healthy peers unconditionally. One way to achieve this is
+running periodic active checks of the corresponding upstreams. For this, let's
+use Haskell module
+[*NgxExport.Tools.Subrequest*](https://hackage.haskell.org/package/ngx-export-tools-extra-0.5.5.1/docs/NgxExport-Tools-Subrequest.html).
+
+Here we have to mix the health checks and the *subrequest* functionality in a
+single shared library, this means that we must use module
+*NgxExport.Healthcheck* and build the library in the way described in the
+[*dedicated section*](#building-module-ngxexporthealthcheck).
+
+Below is the source code of the shared library.
+
+```haskell
+{-# LANGUAGE TemplateHaskell #-}
+
+module NgxHealthcheckPeriodic where
+
+import           NgxExport
+import           NgxExport.Tools
+import           NgxExport.Tools.Subrequest
+
+import           NgxExport.Healthcheck ()
+
+import           Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as L
+
+makeRequest :: ByteString -> Bool -> IO L.ByteString
+makeRequest = const . makeSubrequest
+
+ngxExportSimpleService 'makeRequest $ PersistentService $ Just $ Sec 10
+```
+
+The periodic services must be declared in the Nginx configuration for all the
+upstreams to check.
+
+```nginx
+    haskell_run_service simpleService_makeRequest $hs_check_u_backend
+            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend"}';
+
+    haskell_run_service simpleService_makeRequest $hs_check_u_backend0
+            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend0"}';
+
+    haskell_run_service simpleService_makeRequest $hs_check_u_backend1
+            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend1"}';
+```
+
+Location */Local/check* shall proxy to the specified upstream.
+
+```nginx
+        location ~ ^/Local/check/(.+) {
+            allow 127.0.0.1;
+            deny all;
+            proxy_pass http://$1;
+        }
+```
+
+For shared upstreams the periodic check services can be made shared, in which
+case the corresponding service variables must be added into the list of
+directive *haskell_service_var_in_shm*.
+
 Corner cases
 ------------
 
@@ -678,70 +744,4 @@ Then copy all dependent Haskell libraries into the target directory.
 ```ShellSession
 # cp -v .hslibs/* $HSLIBS_INSTALL_DIR
 ```
-
-Periodic checks of healthy peers
---------------------------------
-
-The plugin checks periodically only faulty peers. Healthy peers become faulty
-if they do not pass the standard Nginx rules, but this may happen only when
-client requests trigger forwarding to the corresponding upstreams. Sometimes, it
-makes sense to check healthy peers unconditionally. One way to achieve this is
-running periodic active checks of the corresponding upstreams. For this, let's
-use Haskell module
-[*NgxExport.Tools.Subrequest*](https://hackage.haskell.org/package/ngx-export-tools-extra-0.5.5.1/docs/NgxExport-Tools-Subrequest.html).
-
-Now we have to mix the health checks and the *subrequest* functionality in a
-single shared library, this means that we must use module
-*NgxExport.Healthcheck* and build the library in the way described in the
-[*dedicated section*](#building-module-ngxexporthealthcheck).
-
-Below is the source code of the shared library.
-
-```haskell
-{-# LANGUAGE TemplateHaskell #-}
-
-module NgxHealthcheckPeriodic where
-
-import           NgxExport
-import           NgxExport.Tools
-import           NgxExport.Tools.Subrequest
-
-import           NgxExport.Healthcheck ()
-
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as L
-
-makeRequest :: ByteString -> Bool -> IO L.ByteString
-makeRequest = const . makeSubrequest
-
-ngxExportSimpleService 'makeRequest $ PersistentService $ Just $ Sec 10
-```
-
-The periodic services must be declared in the Nginx configuration for all the
-upstreams to check.
-
-```nginx
-    haskell_run_service simpleService_makeRequest $hs_check_u_backend
-            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend"}';
-
-    haskell_run_service simpleService_makeRequest $hs_check_u_backend0
-            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend0"}';
-
-    haskell_run_service simpleService_makeRequest $hs_check_u_backend1
-            '{"uri": "http://127.0.0.1:8010/Local/check/u_backend1"}';
-```
-
-Location */Local/check* shall proxy to the specified upstream.
-
-```nginx
-        location ~ ^/Local/check/(.+) {
-            allow 127.0.0.1;
-            deny all;
-            proxy_pass http://$1;
-        }
-```
-
-For shared upstreams the periodic check services can be made shared, in which
-case the corresponding service variables must be added into the list of
-directive *haskell_service_var_in_shm*.
 
