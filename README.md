@@ -255,6 +255,31 @@ Below is a typical response from the monitoring service.
 }
 ```
 
+When the monitoring service is accessed via URL */stat/merge*, its response gets
+merged across workers PIDs.
+
+```json
+[
+  "2018-06-14T20:02:18Z",
+  {
+    "hs_service_healthcheck": {
+      "u_backend": [
+        "127.0.0.1:8020"
+      ],
+      "u_backend1": [
+        "127.0.0.1:8060",
+        "127.0.0.1:8050"
+      ]
+    },
+    "hs_service_healthcheck0": {
+      "u_backend": [
+        "127.0.0.1:8020"
+      ]
+    }
+  }
+]
+```
+
 ### Normal upstreams, only health checks
 
 Henceforth I am going to skip unrelated parts of the configuration for brevity.
@@ -543,7 +568,10 @@ upstreams to check.
 
 Sadly, a subrequest may come to an arbitrary worker process which means that
 there is no guarantee that faulty peers in *normal* upstreams will be checked in
-all workers processes! But this is not the case for *shared* upstreams.
+all workers processes! Therefore, it makes sense to share periodic check
+services between all the workers by adding the corresponding service variables
+into the list of directive *haskell_service_var_in_shm* for both normal and
+shared upstreams.
 
 Location */Local/check/0/* shall proxy to the specified upstream.
 
@@ -565,12 +593,12 @@ Location */Local/check/0/* shall proxy to the specified upstream.
 
 The intermediate *makeSubrequest* catches possible *5xx* and other bad HTTP
 statuses received from the upstream to prevent the periodic checks from throwing
-exceptions. Additionally, checking the response status can be used for alerting
-that all servers in the upstream have failed.
+exceptions. Additionally, checking the response status in the intermediate
+location can be used for alerting that all servers in the upstream have failed.
 
-For shared upstreams the periodic check services can be made shared as well, in
-which case the corresponding service variables must be added into the list of
-directive *haskell_service_var_in_shm*.
+As soon as faulty servers from *normal* upstreams may appear arbitrarily in
+different worker processes, it makes sense to monitor them using *merged view*,
+i.e. via URL */stat/merge*.
 
 Corner cases
 ------------

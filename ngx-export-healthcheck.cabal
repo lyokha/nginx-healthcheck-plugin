@@ -21,10 +21,12 @@ library
                      , vector
                      , text
                      , aeson >= 1.0.0.0
-                     , time
+                     , time >= 1.9.1
                      , snap-server
                      , snap-core
                      , safe
 
   exposed-modules:     NgxExport.Healthcheck
+
+  ghc-options:        -Wall
 

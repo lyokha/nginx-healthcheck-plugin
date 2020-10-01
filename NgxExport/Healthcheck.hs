@@ -41,6 +41,7 @@ import           Foreign.Marshal.Utils
 import           Data.Aeson
 import           Data.Word
 import           Data.Int
+import           Data.Time.Clock
 import           Data.Time.Clock.POSIX
 import           Snap.Http.Server
 import           Snap.Core
@@ -142,7 +143,10 @@ toSec (HrMin h m)  = 3600 * h + 60 * m
 toSec (MinSec m s) = 60 * m + s
 
 getNow :: IO CTime
-getNow = fmap ((fromIntegral :: Word64 -> CTime) . round) getPOSIXTime
+getNow = fmap ((fromIntegral :: Word64 -> CTime)
+               . floor
+               . nominalDiffTimeToSeconds
+              ) getPOSIXTime
 
 byPassRule :: PassRule -> PassRuleParams -> Bool
 byPassRule DefaultPassRule
@@ -314,6 +318,7 @@ ssConfig p = setPort p
 ssHandler :: Snap ()
 ssHandler = route [("report", Snap.Core.method POST receiveStats)
                   ,("stat", Snap.Core.method GET sendStats)
+                  ,("stat/merge", Snap.Core.method GET sendMergedStats)
                   ]
 
 receiveStats :: Snap ()
@@ -352,6 +357,21 @@ sendStats = handleStatsExceptions "Exception while sending stats" $ do
                                ***
                                ML.filter (not . null)
                               ) s
+
+sendMergedStats :: Snap ()
+sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
+    (merge . snd -> s) <- liftIO $ readIORef stats
+    modifyResponse $ setContentType "application/json"
+    writeLBS $ encode $ first (\(CTime (fromIntegral -> t)) ->
+                                  posixSecondsToUTCTime t
+                              ) s
+    where merge = M.foldr (\(tc, sc) (ta, sa) ->
+                              (if ta == 0
+                                   then tc
+                                   else min ta tc
+                              ,ML.unionWith (M.unionWith union) sa sc
+                              )
+                          ) (0, ML.empty)
 
 handleStatsExceptions :: String -> Snap () -> Snap ()
 handleStatsExceptions cmsg = handleAny $ \e ->
