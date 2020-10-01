@@ -256,7 +256,7 @@ Below is a typical response from the monitoring service.
 ```
 
 When the monitoring service is accessed via URL */stat/merge*, its response gets
-merged across workers PIDs.
+merged across all the workers' PIDs.
 
 ```json
 [
@@ -279,6 +279,8 @@ merged across workers PIDs.
   }
 ]
 ```
+
+The time in the response is the oldest time collected from all the workers.
 
 ### Normal upstreams, only health checks
 
@@ -597,8 +599,8 @@ exceptions. Additionally, checking the response status in the intermediate
 location can be used for alerting that all servers in the upstream have failed.
 
 As soon as faulty servers from *normal* upstreams may appear arbitrarily in
-different worker processes, it makes sense to monitor them using *merged view*,
-i.e. via URL */stat/merge*.
+different worker processes, it makes sense to monitor them using the *merged
+view*, i.e. via URL */stat/merge*.
 
 Corner cases
 ------------
