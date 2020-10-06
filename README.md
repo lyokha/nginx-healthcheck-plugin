@@ -255,32 +255,42 @@ Below is a typical response from the monitoring service.
 }
 ```
 
-When the monitoring service is accessed via URL */stat/merge*, its response gets
-merged across all the workers' PIDs.
+When the monitoring service is accessed via URL */stat/merge*, its response data
+gets merged from all worker processes.
 
 ```json
-[
-  "2018-06-14T20:02:18Z",
-  {
-    "hs_service_healthcheck": {
-      "u_backend": [
+{
+  "hs_service_healthcheck": {
+    "u_backend": [
+      [
+        "2018-06-14T20:02:18Z",
         "127.0.0.1:8020"
-      ],
-      "u_backend1": [
-        "127.0.0.1:8060",
+      ]
+    ],
+    "u_backend1": [
+      [
+        "2018-06-14T20:02:18Z",
         "127.0.0.1:8050"
+      ],
+      [
+        "2018-06-14T20:02:18Z",
+        "127.0.0.1:8060"
       ]
-    },
-    "hs_service_healthcheck0": {
-      "u_backend": [
+    ]
+  },
+  "hs_service_healthcheck0": {
+    "u_backend": [
+      [
+        "2018-06-14T20:02:18Z",
         "127.0.0.1:8020"
       ]
-    }
+    ]
   }
-]
+}
 ```
 
-The time in the response is the oldest time collected from all the workers.
+In this *merged view*, all faulty servers are tagged with times of their latest
+checks.
 
 ### Normal upstreams, only health checks
 

@@ -32,6 +32,7 @@ import qualified Data.Text.Encoding as T
 import           Data.Maybe
 import           Data.List
 import           Data.Char
+import           Data.Function
 import           Foreign.C.Types
 import           Foreign.C.String
 import           Foreign.Ptr
@@ -362,16 +363,24 @@ sendMergedStats :: Snap ()
 sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
     (merge . snd -> s) <- liftIO $ readIORef stats
     modifyResponse $ setContentType "application/json"
-    writeLBS $ encode $ first (\(CTime (fromIntegral -> t)) ->
-                                  posixSecondsToUTCTime t
-                              ) s
-    where merge = M.foldr (\(tc, sc) (ta, sa) ->
-                              (if ta == 0
-                                   then tc
-                                   else min ta tc
-                              ,ML.unionWith (M.unionWith union) sa sc
-                              )
-                          ) (0, ML.empty)
+    writeLBS $ encode $
+        ML.map (M.map $ map $
+                   first (\(CTime (fromIntegral -> t)) ->
+                             posixSecondsToUTCTime t
+                         )
+               ) s
+    where merge = M.foldr (ML.unionWith $
+                              M.unionWith $ (takeLatest .) . (++)
+                          ) ML.empty
+                  . M.map (\(t, s) -> ML.map (M.map $ map (t, )) s)
+          takeLatest = map head
+                       . groupBy ((==) `on` snd)
+                       . sortBy (\(t, s) (t', s') ->
+                                    let c = compare s s'
+                                    in if c == EQ
+                                           then compare t' t
+                                           else c
+                                )
 
 handleStatsExceptions :: String -> Snap () -> Snap ()
 handleStatsExceptions cmsg = handleAny $ \e ->
