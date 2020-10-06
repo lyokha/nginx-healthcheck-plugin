@@ -363,24 +363,21 @@ sendMergedStats :: Snap ()
 sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
     (merge . snd -> s) <- liftIO $ readIORef stats
     modifyResponse $ setContentType "application/json"
-    writeLBS $ encode $
-        ML.map (M.map $ map $
-                   first (\(CTime (fromIntegral -> t)) ->
-                             posixSecondsToUTCTime t
-                         )
-               ) s
+    writeLBS $ encode s
     where merge = M.foldr (ML.unionWith $
-                              M.unionWith $ (takeLatest .) . (++)
+                              M.unionWith $ (sortAndPickLatest .) . (++)
                           ) ML.empty
-                  . M.map (\(t, s) -> ML.map (M.map $ map (t, )) s)
-          takeLatest = map head
-                       . groupBy ((==) `on` snd)
-                       . sortBy (\(t, s) (t', s') ->
-                                    let c = compare s s'
-                                    in if c == EQ
-                                           then compare t' t
-                                           else c
-                                )
+                  . M.map (\(CTime (fromIntegral -> t), s) ->
+                              ML.map (M.map $ map (posixSecondsToUTCTime t,)) s
+                          )
+          sortAndPickLatest = map head
+                              . groupBy ((==) `on` snd)
+                              . sortBy (\(t, s) (t', s') ->
+                                           let c = compare s s'
+                                           in if c == EQ
+                                                  then compare t' t
+                                                  else c
+                                       )
 
 handleStatsExceptions :: String -> Snap () -> Snap ()
 handleStatsExceptions cmsg = handleAny $ \e ->
