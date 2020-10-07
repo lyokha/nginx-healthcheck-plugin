@@ -535,7 +535,7 @@ client requests trigger forwarding to the corresponding upstreams. Sometimes, it
 makes sense to check healthy peers unconditionally. One way to achieve this is
 running periodic active checks of the corresponding upstreams. For this, let's
 use Haskell module
-[*NgxExport.Tools.Subrequest*](https://hackage.haskell.org/package/ngx-export-tools-extra-0.5.5.1/docs/NgxExport-Tools-Subrequest.html).
+[*NgxExport.Tools.Subrequest*](https://hackage.haskell.org/package/ngx-export-tools-extra/docs/NgxExport-Tools-Subrequest.html).
 
 Here we have to mix the health checks and the *subrequest* functionality in a
 single shared library, this means that we must use module
