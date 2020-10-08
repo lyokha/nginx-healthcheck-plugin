@@ -361,7 +361,7 @@ sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
     writeLBS $ encode s
     where merge = M.foldl (ML.unionWith $ M.unionWith pickLatest) ML.empty
                   . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)
-          pickLatest = ((map (maximumBy (comparing fst))
+          pickLatest = ((map (maximumBy $ comparing fst)
                         . groupBy ((==) `on` snd)
                         ) .
                        ) . foldr (insertBy $
