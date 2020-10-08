@@ -40,10 +40,10 @@ import           Foreign.Storable
 import           Foreign.Marshal.Alloc
 import           Foreign.Marshal.Utils
 import           Data.Aeson
-import           Data.Word
+import           Data.Fixed
 import           Data.Int
 import           Data.Time.Clock
-import           Data.Time.Clock.POSIX
+import           Data.Time.Calendar
 import           Snap.Http.Server
 import           Snap.Core
 import           Safe
@@ -108,8 +108,8 @@ ssConf :: IORef (Maybe StatsServerConf)
 ssConf = unsafePerformIO $ newIORef Nothing
 {-# NOINLINE ssConf #-}
 
-stats :: IORef (CTime, Map Int32 (CTime, ML.Map ServiceKey Peers))
-stats = unsafePerformIO $ newIORef (0, M.empty)
+stats :: IORef (UTCTime, Map Int32 (UTCTime, ML.Map ServiceKey Peers))
+stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 {-# NOINLINE stats #-}
 
 both :: Arrow a => a b c -> a (b, b) (c, c)
@@ -142,12 +142,6 @@ toSec (Min m)      = 60 * m
 toSec (Sec s)      = s
 toSec (HrMin h m)  = 3600 * h + 60 * m
 toSec (MinSec m s) = 60 * m + s
-
-getNow :: IO CTime
-getNow = fmap ((fromIntegral :: Word64 -> CTime)
-               . floor
-               . nominalDiffTimeToSeconds
-              ) getPOSIXTime
 
 byPassRule :: PassRule -> PassRuleParams -> Bool
 byPassRule DefaultPassRule
@@ -328,14 +322,17 @@ receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
     when (isNothing s) $ liftIO $ throwUserError "Unreadable stats!"
     liftIO $ do
         let (pid, skey, ps) = fromJust s
-        !t <- getNow
-        (fromIntegral . toSec . ssPurgeInterval . fromJust -> !int) <-
+        !t <- getCurrentTime
+        (toNominalDiffTime . toSec . ssPurgeInterval . fromJust -> !int) <-
             readIORef ssConf
         atomicModifyIORef' stats $
             (, ()) . \(t', ps') ->
                 let (!tn, f) =
-                        if t - t' >= int
-                            then (t, M.filter $ \(t'', _) -> t - t'' < int)
+                        if diffUTCTime t t' >= int
+                            then (t
+                                 ,M.filter $
+                                     \(t'', _) -> diffUTCTime t t'' < int
+                                 )
                             else (t', id)
                     !psn = f $ M.alter
                                (\old ->
@@ -347,17 +344,14 @@ receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
                                ) pid ps'
                 in (tn, psn)
     finishWith emptyResponse
+    where toNominalDiffTime =
+              secondsToNominalDiffTime . MkFixed . (1e12 *) . fromIntegral
 
 sendStats :: Snap ()
 sendStats = handleStatsExceptions "Exception while sending stats" $ do
     (snd -> s) <- liftIO $ readIORef stats
     modifyResponse $ setContentType "application/json"
-    writeLBS $ encode $ M.map ((\(CTime (fromIntegral -> t)) ->
-                                  posixSecondsToUTCTime t
-                               )
-                               ***
-                               ML.filter (not . null)
-                              ) s
+    writeLBS $ encode $ M.map (second $ ML.filter $ not . null) s
 
 sendMergedStats :: Snap ()
 sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
@@ -367,9 +361,7 @@ sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
     where merge = M.foldr (ML.unionWith $
                               M.unionWith $ (sortAndPickLatest .) . (++)
                           ) ML.empty
-                  . M.map (\(CTime (fromIntegral -> t), s) ->
-                              ML.map (M.map $ map (posixSecondsToUTCTime t,)) s
-                          )
+                  . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)
           sortAndPickLatest = map head
                               . groupBy ((==) `on` snd)
                               . sortBy (\(t, s) (t', s') ->
