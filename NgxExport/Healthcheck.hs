@@ -345,8 +345,10 @@ receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
                                ) pid ps'
                 in (tn, psn)
     finishWith emptyResponse
-    where toNominalDiffTime =
-              secondsToNominalDiffTime . MkFixed . (1e12 *) . fromIntegral
+    where toNominalDiffTime = secondsToNominalDiffTime
+                              . (MkFixed :: Integer -> Pico)
+                              . (resolution (undefined :: Pico) *)
+                              . fromIntegral
 
 sendStats :: Snap ()
 sendStats = handleStatsExceptions "Exception while sending stats" $ do
