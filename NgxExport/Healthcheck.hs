@@ -116,6 +116,15 @@ stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 both :: Arrow a => a b c -> a (b, b) (c, c)
 both = join (***)
 
+factorToIntegerPart :: forall a. HasResolution a => Fixed a
+factorToIntegerPart = let r = resolution (undefined :: Fixed a)
+                      in MkFixed $ r * r
+{-# SPECIALIZE factorToIntegerPart :: Pico #-}
+
+asIntegerPart :: HasResolution a => Integer -> Fixed a
+asIntegerPart = (factorToIntegerPart *) . MkFixed
+{-# SPECIALIZE INLINE asIntegerPart :: Integer -> Pico #-}
+
 getUrl :: ServiceKey -> Url -> IO HttpStatus
 getUrl skey url = do
     httpManager' <- M.lookup skey <$> readIORef httpManager
@@ -324,8 +333,8 @@ receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
     liftIO $ do
         let (pid, skey, ps) = fromJust s
         !t <- getCurrentTime
-        (toNominalDiffTime . toSec . ssPurgeInterval . fromJust -> !int) <-
-            readIORef ssConf
+        (toNominalDiffTime . fromIntegral . toSec . ssPurgeInterval -> !int) <-
+            fromJust <$> readIORef ssConf
         atomicModifyIORef' stats $
             (, ()) . \(t', ps') ->
                 let (!tn, f) =
@@ -345,10 +354,7 @@ receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
                                ) pid ps'
                 in (tn, psn)
     finishWith emptyResponse
-    where toNominalDiffTime = secondsToNominalDiffTime
-                              . (MkFixed :: Integer -> Pico)
-                              . (resolution (undefined :: Pico) *)
-                              . fromIntegral
+    where toNominalDiffTime = secondsToNominalDiffTime . asIntegerPart
 
 sendStats :: Snap ()
 sendStats = handleStatsExceptions "Exception while sending stats" $ do
