@@ -116,13 +116,8 @@ stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 both :: Arrow a => a b c -> a (b, b) (c, c)
 both = join (***)
 
-factorToIntegerPart :: forall a. HasResolution a => Fixed a
-factorToIntegerPart = let r = resolution (undefined :: Fixed a)
-                      in MkFixed $ r * r
-{-# SPECIALIZE factorToIntegerPart :: Pico #-}
-
-asIntegerPart :: HasResolution a => Integer -> Fixed a
-asIntegerPart = (factorToIntegerPart *) . MkFixed
+asIntegerPart :: forall a. HasResolution a => Integer -> Fixed a
+asIntegerPart = MkFixed . (resolution (undefined :: Fixed a) *)
 {-# SPECIALIZE INLINE asIntegerPart :: Integer -> Pico #-}
 
 getUrl :: ServiceKey -> Url -> IO HttpStatus
