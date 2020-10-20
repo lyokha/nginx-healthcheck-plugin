@@ -647,7 +647,7 @@ Corner cases
 Building and installation
 -------------------------
 
-The plugin contains Haskell and C parts, and thus requires *ghc*, *cabal*,
+The plugin contains Haskell and C parts, and thus it requires *ghc*, *cabal*,
 *gcc*, and a directory with the Nginx sources. The trickiest part is building
 the C plugin. There are two options for that: static compilation and linkage
 against the resulting shared library, and building an Nginx dynamic module.
