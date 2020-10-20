@@ -3,7 +3,7 @@ Active health checks and monitoring of Nginx upstreams
 
 **Disclaimer**: this is not an Nginx module in the traditional sense! It
 compiles to a shared library that gets loaded in Nginx using directive
-`haskell_run_service` from Nginx module
+`haskell load` from Nginx module
 [*nginx-haskell-module*](https://github.com/lyokha/nginx-haskell-module). Let's
 call this *plugin*. The plugin provides support for active health checks and
 monitoring of peers in normal *per-worker* and *shared* upstreams (those
@@ -648,12 +648,12 @@ Building and installation
 -------------------------
 
 The plugin contains Haskell and C parts, and thus requires *ghc*, *cabal*,
-*gcc*, and a directory with Nginx sources. The trickiest part is building the C
-plugin. There are two options for that: static compilation and linkage against
-the resulting shared library, and building an Nginx dynamic module.
+*gcc*, and a directory with Nginx the sources. The trickiest part is building
+the C plugin. There are two options for that: static compilation and linkage
+against the resulting shared library, and building an Nginx dynamic module.
 
 For the first build option, environment variable *NGX_HOME* with the directory
-where Nginx sources are located must be set.
+where the Nginx sources are located must be set.
 
 ```ShellSession
 $ export NGX_HOME=/path/to/Nginx/sources
@@ -667,7 +667,7 @@ $ cabal update
 $ make
 ```
 
-For the second build option, go to the directory with Nginx sources, run
+For the second build option, go to the directory with the Nginx sources, run
 *configure* with option
 *--add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources*, then *make
 modules* and copy the built library to some directory where this can be loaded
