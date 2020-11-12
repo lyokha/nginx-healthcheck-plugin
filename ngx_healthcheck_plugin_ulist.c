@@ -261,7 +261,7 @@ check_peers_out:
     for (peer = peers->peer; peer; peer = peer->next) {
         if (peer->max_fails && peer->fails >= peer->max_fails) {
             if (check_peers_in) {
-                ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
+                ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                               "Peer \"%V\" is in failed state and staged "
                               "for watching", &peer->name);
             }
@@ -274,7 +274,7 @@ check_peers_out:
         for (peer = backup_peers->peer; peer; peer = peer->next) {
             if (peer->max_fails && peer->fails >= peer->max_fails) {
                 if (check_peers_in) {
-                    ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
+                    ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                                   "Peer \"%V\" is in failed state and staged "
                                   "for watching", &peer->name);
                 }
@@ -304,7 +304,7 @@ plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle, time_t now,
 {
     if (good) {
         peer->fails = 0;
-        ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
+        ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                       "Peer \"%V\" is repaired and no longer watched",
                       &peer->name);
     }
