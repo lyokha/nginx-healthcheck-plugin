@@ -693,11 +693,12 @@ ngxExportYY 'nFailedServers
                     [("cnt_upstream_failure"
                       ,"Number of servers which are currently failed")
                     ]
-                , pcGauges = ["cnt_upstream_failure@upstream=(u_backend)"
-                             ,"cnt_upstream_failure@upstream=(u_backend0)"
-                             ,"cnt_upstream_failure@upstream=(u_backend1)"
-                             ]
-                , pcScale1000 = []
+                , pcGauges = fromList
+                    ["cnt_upstream_failure@upstream=(u_backend)"
+                    ,"cnt_upstream_failure@upstream=(u_backend0)"
+                    ,"cnt_upstream_failure@upstream=(u_backend1)"
+                    ]
+                , pcScale1000 = fromList []
                 }';
 
 # ...
@@ -755,11 +756,12 @@ ngxExportYY 'nFailedServers
                     [("cnt_upstream_failure"
                       ,"Number of servers which are currently failed")
                     ]
-                , pcGauges = ["cnt_upstream_failure@upstream=(u_backend)"
-                             ,"cnt_upstream_failure@upstream=(u_backend0)"
-                             ,"cnt_upstream_failure@upstream=(u_backend1)"
-                             ]
-                , pcScale1000 = []
+                , pcGauges = fromList
+                    ["cnt_upstream_failure@upstream=(u_backend)"
+                    ,"cnt_upstream_failure@upstream=(u_backend0)"
+                    ,"cnt_upstream_failure@upstream=(u_backend1)"
+                    ]
+                , pcScale1000 = fromList []
                 }';
 
 # ...
