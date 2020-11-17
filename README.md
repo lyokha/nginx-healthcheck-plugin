@@ -700,8 +700,6 @@ ngxExportYY 'nFailedServers
                 , pcScale1000 = []
                 }';
 
-    haskell_var_empty_on_error $hs_prom_metrics;
-
 # ...
 
         location /stat {
@@ -743,16 +741,8 @@ ngxExportYY 'nFailedServers
 
             haskell_run_async makeSubrequest $hs_subrequest
                     '{"uri": "http://127.0.0.1:8010/stat/merge"}';
-            haskell_run toPrometheusMetrics $hs_prom_metrics
+            haskell_async_content prometheusMetrics 
                     '["main", $cnt_collection, {}, {}]';
-
-            if ($hs_prom_metrics = '') {
-                return 503;
-            }
-
-            default_type "text/plain; version=0.0.4; charset=utf-8";
-
-            echo -n $hs_prom_metrics;
         }
 ```
 
@@ -771,8 +761,6 @@ ngxExportYY 'nFailedServers
                              ]
                 , pcScale1000 = []
                 }';
-
-    haskell_var_empty_on_error $hs_prom_metrics;
 
 # ...
 
@@ -815,16 +803,8 @@ ngxExportYY 'nFailedServers
 
             haskell_run_async makeSubrequest $hs_subrequest
                     '{"uri": "http://127.0.0.1:8010/stat/shared"}';
-            haskell_run toPrometheusMetrics $hs_prom_metrics
+            haskell_async_content prometheusMetrics
                     '["main", $cnt_collection, {}, {}]';
-
-            if ($hs_prom_metrics = '') {
-                return 503;
-            }
-
-            default_type "text/plain; version=0.0.4; charset=utf-8";
-
-            echo -n $hs_prom_metrics;
         }
 ```
 
