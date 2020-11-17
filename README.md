@@ -24,6 +24,7 @@ Table of contents
     + [Normal upstreams, only monitoring](#normal-upstreams-only-monitoring)
     + [Shared upstreams, health checks and monitoring](#shared-upstreams-health-checks-and-monitoring)
 - [Periodic checks of healthy peers](#periodic-checks-of-healthy-peers)
+- [Collecting Prometheus metrics](#collecting-prometheus-metrics)
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
     + [Building module NgxExport.Healthcheck](#building-module-ngxexporthealthcheck)
@@ -611,6 +612,229 @@ location can be used for alerting that all servers in the upstream have failed.
 As soon as faulty servers from *normal* upstreams may appear arbitrarily in
 different worker processes, it makes sense to monitor them using the *merged
 view*, i.e. via URL */stat/merge*.
+
+Collecting Prometheus metrics
+-----------------------------
+
+With modules
+[*NgxExport.Tools.Prometheus*](https://hackage.haskell.org/package/ngx-export-tools-extra/docs/NgxExport-Tools-Prometheus.html),
+[*NgxExport.Tools.Subrequest*](https://hackage.haskell.org/package/ngx-export-tools-extra/docs/NgxExport-Tools-Subrequest.html),
+and [*nginx-custom-counters-module*](https://github.com/lyokha/nginx-custom-counters-module),
+custom Prometheus metrics can be collected. Let's monitor the number of
+currently failed peers in all checked upstreams by extending examples from
+section [*Examples*](#examples).
+
+Below is the source code of the shared library.
+
+```haskell
+{-# LANGUAGE TemplateHaskell, TypeApplications, ViewPatterns #-}
+
+module NgxHealthcheckPrometheus where
+
+import           NgxExport
+import           NgxExport.Tools
+import           NgxExport.Tools.Prometheus ()
+import           NgxExport.Tools.Subrequest ()
+
+import           NgxExport.Healthcheck
+
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
+import qualified Data.Map.Lazy as ML
+import           Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Char8 as C8
+import qualified Data.ByteString.Lazy.Char8 as C8L
+import qualified Data.Text.Encoding as T
+import           Data.Binary
+import           Data.Maybe
+import           Data.Time.Clock
+
+type MergedStats = ML.Map ServiceKey (Map Upstream [(UTCTime, Peer)])
+type SharedStats = ML.Map ServiceKey Peers
+type FlatStats = Map Upstream Int
+
+toFlatStats :: ML.Map ServiceKey (Map Upstream [a]) -> FlatStats
+toFlatStats = ML.foldr (flip $ M.foldrWithKey $
+                           \k v -> M.alter (setN $ length v) k
+                       ) M.empty
+    where setN n Nothing = Just n
+          setN n (Just m) = Just $ max n m
+
+mergedFlatStats :: ByteString -> L.ByteString
+mergedFlatStats =
+    encode . toFlatStats . fromJust . readFromByteStringAsJSON @MergedStats
+
+ngxExportYY 'mergedFlatStats
+
+sharedFlatStats :: ByteString -> L.ByteString
+sharedFlatStats =
+    encode . toFlatStats . fromJust . readFromByteStringAsJSON @SharedStats
+
+ngxExportYY 'sharedFlatStats
+
+nFailedServers :: ByteString -> L.ByteString
+nFailedServers v =
+    let (T.decodeUtf8 -> u, decode @FlatStats . L.fromStrict . C8.tail -> s) =
+            C8.break (== '|') v
+    in C8L.pack $ show $ fromMaybe 0 $ M.lookup u s
+
+ngxExportYY 'nFailedServers
+```
+
+### Normal upstreams (related changes)
+
+```nginx
+    haskell_run_service simpleService_prometheusConf $hs_prometheus_conf
+            'PrometheusConf
+                { pcMetrics = fromList
+                    [("cnt_upstream_failure"
+                      ,"Number of servers which are currently failed")
+                    ]
+                , pcGauges = ["cnt_upstream_failure@upstream=(u_backend)"
+                             ,"cnt_upstream_failure@upstream=(u_backend0)"
+                             ,"cnt_upstream_failure@upstream=(u_backend1)"
+                             ]
+                , pcScale1000 = []
+                }';
+
+    haskell_var_empty_on_error $hs_prom_metrics;
+
+# ...
+
+        location /stat {
+            allow 127.0.0.1;
+            deny all;
+            proxy_pass http://127.0.0.1:8100;
+        }
+
+        location /stat/merge {
+            allow 127.0.0.1;
+            deny all;
+
+            counter $cnt_upstream_failure@upstream=(u_backend)
+                    set $hs_n_u_backend;
+            counter $cnt_upstream_failure@upstream=(u_backend0)
+                    set $hs_n_u_backend0;
+            counter $cnt_upstream_failure@upstream=(u_backend1)
+                    set $hs_n_u_backend1;
+
+            haskell_run_async makeSubrequestFull $hs_subrequest
+                    '{"uri": "http://127.0.0.1:8100/stat/merge"}';
+            haskell_run extractBodyFromFullResponse $hs_subrequest_body
+                    $hs_subrequest;
+            haskell_run mergedFlatStats $hs_failed_backends
+                    $hs_subrequest_body;
+            haskell_run nFailedServers $hs_n_u_backend
+                    u_backend|$hs_failed_backends;
+            haskell_run nFailedServers $hs_n_u_backend0
+                    u_backend0|$hs_failed_backends;
+            haskell_run nFailedServers $hs_n_u_backend1
+                    u_backend1|$hs_failed_backends;
+
+            haskell_content fromFullResponse $hs_subrequest;
+        }
+
+        location /metrics {
+            allow 127.0.0.1;
+            deny all;
+
+            haskell_run_async makeSubrequest $hs_subrequest
+                    '{"uri": "http://127.0.0.1:8010/stat/merge"}';
+            haskell_run toPrometheusMetrics $hs_prom_metrics
+                    '["main", $cnt_collection, {}, {}]';
+
+            if ($hs_prom_metrics = '') {
+                return 503;
+            }
+
+            default_type "text/plain; version=0.0.4; charset=utf-8";
+
+            echo -n $hs_prom_metrics;
+        }
+```
+
+### Shared upstreams (related changes)
+
+```nginx
+    haskell_run_service simpleService_prometheusConf $hs_prometheus_conf
+            'PrometheusConf
+                { pcMetrics = fromList
+                    [("cnt_upstream_failure"
+                      ,"Number of servers which are currently failed")
+                    ]
+                , pcGauges = ["cnt_upstream_failure@upstream=(u_backend)"
+                             ,"cnt_upstream_failure@upstream=(u_backend0)"
+                             ,"cnt_upstream_failure@upstream=(u_backend1)"
+                             ]
+                , pcScale1000 = []
+                }';
+
+    haskell_var_empty_on_error $hs_prom_metrics;
+
+# ...
+
+        location /stat {
+            allow 127.0.0.1;
+            deny all;
+            haskell_async_content reportPeers;
+        }
+
+        location /stat/shared {
+            allow 127.0.0.1;
+            deny all;
+
+            counter $cnt_upstream_failure@upstream=(u_backend)
+                    set $hs_n_u_backend;
+            counter $cnt_upstream_failure@upstream=(u_backend0)
+                    set $hs_n_u_backend0;
+            counter $cnt_upstream_failure@upstream=(u_backend1)
+                    set $hs_n_u_backend1;
+
+            haskell_run_async makeSubrequestFull $hs_subrequest
+                    '{"uri": "http://127.0.0.1:8010/stat"}';
+            haskell_run extractBodyFromFullResponse $hs_subrequest_body
+                    $hs_subrequest;
+            haskell_run sharedFlatStats $hs_failed_backends
+                    $hs_subrequest_body;
+            haskell_run nFailedServers $hs_n_u_backend
+                    u_backend|$hs_failed_backends;
+            haskell_run nFailedServers $hs_n_u_backend0
+                    u_backend0|$hs_failed_backends;
+            haskell_run nFailedServers $hs_n_u_backend1
+                    u_backend1|$hs_failed_backends;
+
+            haskell_content fromFullResponse $hs_subrequest;
+        }
+
+        location /metrics {
+            allow 127.0.0.1;
+            deny all;
+
+            haskell_run_async makeSubrequest $hs_subrequest
+                    '{"uri": "http://127.0.0.1:8010/stat/shared"}';
+            haskell_run toPrometheusMetrics $hs_prom_metrics
+                    '["main", $cnt_collection, {}, {}]';
+
+            if ($hs_prom_metrics = '') {
+                return 503;
+            }
+
+            default_type "text/plain; version=0.0.4; charset=utf-8";
+
+            echo -n $hs_prom_metrics;
+        }
+```
+
+Below is a typical sample of the Prometheus metrics.
+
+```ShellSession
+# HELP cnt_upstream_failure Number of servers which are currently failed
+# TYPE cnt_upstream_failure gauge
+cnt_upstream_failure{upstream="u_backend"} 2.0
+cnt_upstream_failure{upstream="u_backend0"} 0.0
+cnt_upstream_failure{upstream="u_backend1"} 0.0
+```
 
 Corner cases
 ------------
