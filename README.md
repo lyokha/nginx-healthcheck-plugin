@@ -25,6 +25,8 @@ Table of contents
     + [Shared upstreams, health checks and monitoring](#shared-upstreams-health-checks-and-monitoring)
 - [Periodic checks of healthy peers](#periodic-checks-of-healthy-peers)
 - [Collecting Prometheus metrics](#collecting-prometheus-metrics)
+    + [Normal upstreams, related changes](#normal-upstreams-related-changes)
+    + [Shared upstreams, related changes](#shared-upstreams-related-changes)
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
     + [Building module NgxExport.Healthcheck](#building-module-ngxexporthealthcheck)
@@ -682,7 +684,7 @@ nFailedServers v =
 ngxExportYY 'nFailedServers
 ```
 
-### Normal upstreams (related changes)
+### Normal upstreams, related changes
 
 ```nginx
     haskell_run_service simpleService_prometheusConf $hs_prometheus_conf
@@ -754,7 +756,7 @@ ngxExportYY 'nFailedServers
         }
 ```
 
-### Shared upstreams (related changes)
+### Shared upstreams, related changes
 
 ```nginx
     haskell_run_service simpleService_prometheusConf $hs_prometheus_conf
