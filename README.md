@@ -292,8 +292,9 @@ gets merged from all worker processes.
 }
 ```
 
-In this *merged view*, all faulty servers are tagged with times of their latest
-checks.
+In this *merged view*, all faulty peers are tagged with times of their latest
+checks. Notice also that upstreams in the merged view never contain duplicate
+peers.
 
 ### Normal upstreams, only health checks
 
