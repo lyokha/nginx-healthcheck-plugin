@@ -367,11 +367,9 @@ sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
           pickLatest = ((map (maximumBy $ comparing fst)
                         . groupBy ((==) `on` snd)
                         ) .
-                       ) . foldr (insertBy $
-                                     \(_, a) (_, b) -> if a == b
-                                                           then EQ
-                                                           else GT
-                                 )
+                       ) . foldr (insertBy (groupEqual `on` snd))
+          groupEqual a b | a == b = EQ
+                         | otherwise = GT
 
 handleStatsExceptions :: String -> Snap () -> Snap ()
 handleStatsExceptions cmsg = handleAny $ \e ->
