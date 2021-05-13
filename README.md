@@ -582,13 +582,6 @@ upstreams to check.
             '{"uri": "http://127.0.0.1:8010/Local/check/0/u_backend1"}';
 ```
 
-Sadly, a subrequest may come to an arbitrary worker process which means that
-there is no guarantee that faulty peers in *normal* upstreams will be checked in
-all workers processes! Therefore, it makes sense to share periodic check
-services between all the workers by adding the corresponding service variables
-into the list of directive *haskell_service_var_in_shm* for both normal and
-shared upstreams.
-
 Location */Local/check/0/* shall proxy to the specified upstream.
 
 ```nginx
@@ -612,8 +605,48 @@ statuses received from the upstream to prevent the periodic checks from throwing
 exceptions. Additionally, checking the response status in the intermediate
 location can be used for alerting that all servers in the upstream have failed.
 
-As soon as faulty servers from *normal* upstreams may appear arbitrarily in
-different worker processes, it makes sense to monitor them using the *merged
+Sadly, the subrequests may come to arbitrary worker processes which means that
+there is no guarantee that faulty peers in *normal* upstreams will be checked in
+all worker processes! The worker processes get chosen not only randomly but also
+not fairly: a single worker process may serve all incoming requests during a
+very long time. To make load between the workers more uniform, we can forward
+the subrequests to some dedicated virtual server listening on a port with
+*reuseport*.
+
+```nginx
+    haskell_run_service simpleService_makeRequest $hs_check_u_backend
+            '{"uri": "http://127.0.0.1:8011/Local/check/0/u_backend"}';
+
+    haskell_run_service simpleService_makeRequest $hs_check_u_backend0
+            '{"uri": "http://127.0.0.1:8011/Local/check/0/u_backend0"}';
+
+    haskell_run_service simpleService_makeRequest $hs_check_u_backend1
+            '{"uri": "http://127.0.0.1:8011/Local/check/0/u_backend1"}';
+```
+
+```nginx
+    server {
+        listen          8011 reuseport;
+        server_name     aux_fair_load;
+
+        location ~ ^/Local/check/0/(.+) {
+            allow 127.0.0.1;
+            deny all;
+            haskell_run_async makeSubrequest $hs_subrequest
+                    '{"uri": "http://127.0.0.1:8011/Local/check/1/$1"}';
+            return 200;
+        }
+
+        location ~ ^/Local/check/1/(.+) {
+            allow 127.0.0.1;
+            deny all;
+            proxy_pass http://$1/healthcheck;
+        }
+    }
+```
+
+As soon as faulty servers from *normal* upstreams may still appear arbitrarily
+in different worker processes, it makes sense to monitor them using the *merged
 view*, i.e. via URL */stat/merge*.
 
 Collecting Prometheus metrics
