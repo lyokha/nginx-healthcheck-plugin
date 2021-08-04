@@ -611,7 +611,8 @@ all worker processes! The worker processes get chosen not only randomly but also
 not fairly: a single worker process may serve all incoming requests during a
 very long time. To make load between the workers more uniform, we can forward
 the subrequests to some dedicated virtual server listening on a port with
-*reuseport*.
+*reuseport* and, additionally, randomize the hash for the *reuseport* by always
+changing ports of the subrequests with HTTP request header *Connection: close*.
 
 ```nginx
     haskell_run_service simpleService_makeRequest $hs_check_u_backend
@@ -633,7 +634,9 @@ the subrequests to some dedicated virtual server listening on a port with
             allow 127.0.0.1;
             deny all;
             haskell_run_async makeSubrequest $hs_subrequest
-                    '{"uri": "http://127.0.0.1:8011/Local/check/1/$1"}';
+                    '{"uri": "http://127.0.0.1:8011/Local/check/1/$1"
+                     ,"headers": [["Connection", "close"]]
+                     }';
             return 200;
         }
 
