@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, ForeignFunctionInterface #-}
+{-# LANGUAGE CPP, TemplateHaskell, ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings, BangPatterns, ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables, TupleSections, NumDecimals #-}
 
@@ -11,12 +11,10 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Lazy as ML
 import           Control.Monad
-import           Control.Monad.IO.Class
 import           Control.Arrow
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Exception
-import           Control.Exception.Enclosed (handleAny)
 import           System.IO.Unsafe
 import           Data.IORef
 import           Data.ByteString (ByteString)
@@ -45,9 +43,14 @@ import           Data.Fixed
 import           Data.Int
 import           Data.Time.Clock
 import           Data.Time.Calendar
+import           Safe
+
+#if SNAP_STATS_SERVER
+import           Control.Monad.IO.Class
+import           Control.Exception.Enclosed (handleAny)
 import           Snap.Http.Server
 import           Snap.Core
-import           Safe
+#endif
 
 type Upstream   = Text
 type Peer       = Text
@@ -119,6 +122,10 @@ both = join (***)
 asIntegerPart :: forall a. HasResolution a => Integer -> Fixed a
 asIntegerPart = MkFixed . (resolution (undefined :: Fixed a) *)
 {-# SPECIALIZE INLINE asIntegerPart :: Integer -> Pico #-}
+
+toNominalDiffTime :: TimeInterval -> NominalDiffTime
+toNominalDiffTime =
+    secondsToNominalDiffTime . asIntegerPart . fromIntegral . toSec
 
 getUrl :: ServiceKey -> Url -> IO HttpStatus
 getUrl skey url = do
@@ -308,60 +315,50 @@ updatePeers (C8.lines -> ls)
     | otherwise = throwUserError "Parse error when reading saved peers data!"
 ngxExportServiceHook 'updatePeers
 
-ssConfig :: Int -> Config Snap a
-ssConfig p = setPort p
-           $ setBind "127.0.0.1"
-           $ setAccessLog ConfigNoLog
-           $ setErrorLog ConfigNoLog
-           $ setVerbose False mempty
+receiveStats' :: L.ByteString -> NominalDiffTime -> IO ()
+receiveStats' v int = do
+    let s = decode' v
+    when (isNothing s) $ throwUserError "Unreadable stats!"
+    let (pid, skey, ps) = fromJust s
+    !t <- getCurrentTime
+    atomicModifyIORef' stats $
+        (, ()) . \(t', ps') ->
+            let (!tn, f) =
+                    if diffUTCTime t t' >= int
+                        then (t
+                             ,M.filter $
+                                 \(t'', _) -> diffUTCTime t t'' < int
+                             )
+                        else (t', id)
+                !psn = f $ M.alter
+                           (\old ->
+                               let !new' = if isNothing old
+                                               then ML.singleton skey ps
+                                               else ML.insert skey ps $
+                                                   snd $ fromJust old
+                               in Just (t, new')
+                           ) pid ps'
+            in (tn, psn)
 
-ssHandler :: Snap ()
-ssHandler = route [("report", Snap.Core.method POST receiveStats)
-                  ,("stat", Snap.Core.method GET sendStats)
-                  ,("stat/merge", Snap.Core.method GET sendMergedStats)
-                  ]
+receiveStats :: L.ByteString -> ByteString -> IO L.ByteString
+receiveStats v sint = do
+    let !int = toNominalDiffTime $ readDef (Min 5) $ C8.unpack sint
+    receiveStats' v int
+    return "done"
+ngxExportAsyncOnReqBody 'receiveStats
 
-receiveStats :: Snap ()
-receiveStats = handleStatsExceptions "Exception while receiving stats" $ do
-    (decode' -> !s) <- readRequestBody 65536
-    when (isNothing s) $ liftIO $ throwUserError "Unreadable stats!"
-    liftIO $ do
-        let (pid, skey, ps) = fromJust s
-        !t <- getCurrentTime
-        (toNominalDiffTime . fromIntegral . toSec . ssPurgeInterval -> !int) <-
-            fromJust <$> readIORef ssConf
-        atomicModifyIORef' stats $
-            (, ()) . \(t', ps') ->
-                let (!tn, f) =
-                        if diffUTCTime t t' >= int
-                            then (t
-                                 ,M.filter $
-                                     \(t'', _) -> diffUTCTime t t'' < int
-                                 )
-                            else (t', id)
-                    !psn = f $ M.alter
-                               (\old ->
-                                   let !new' = if isNothing old
-                                                   then ML.singleton skey ps
-                                                   else ML.insert skey ps $
-                                                       snd $ fromJust old
-                                   in Just (t, new')
-                               ) pid ps'
-                in (tn, psn)
-    finishWith emptyResponse
-    where toNominalDiffTime = secondsToNominalDiffTime . asIntegerPart
+sendStats' :: IO (Map Int32 (UTCTime, ML.Map ServiceKey Peers))
+sendStats' = snd <$> readIORef stats
 
-sendStats :: Snap ()
-sendStats = handleStatsExceptions "Exception while sending stats" $ do
-    (snd -> s) <- liftIO $ readIORef stats
-    modifyResponse $ setContentType "application/json"
-    writeLBS $ encode $ M.map (second $ ML.filter $ not . null) s
+sendStats :: ByteString -> IO ContentHandlerResult
+sendStats = const $
+    (, "text/plain", 200, []) . encode
+    . M.map (second $ ML.filter $ not . null)
+    <$> sendStats'
+ngxExportAsyncHandler 'sendStats
 
-sendMergedStats :: Snap ()
-sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
-    (merge . snd -> s) <- liftIO $ readIORef stats
-    modifyResponse $ setContentType "application/json"
-    writeLBS $ encode s
+sendMergedStats' :: IO (Map ServiceKey (Map Upstream [(UTCTime, Peer)]))
+sendMergedStats' = merge <$> sendStats'
     where merge = M.foldl (ML.unionWith $ M.unionWith pickLatest) ML.empty
                   . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)
           pickLatest = ((map (maximumBy $ comparing fst)
@@ -370,6 +367,52 @@ sendMergedStats = handleStatsExceptions "Exception while sending stats" $ do
                        ) . foldr (insertBy (groupEqual `on` snd))
           groupEqual a b | a == b = EQ
                          | otherwise = GT
+
+sendMergedStats :: ByteString -> IO ContentHandlerResult
+sendMergedStats = const $
+    (, "text/plain", 200, []) . encode
+    <$> sendMergedStats'
+ngxExportAsyncHandler 'sendMergedStats
+
+
+#if SNAP_STATS_SERVER
+
+ssConfig :: Int -> Config Snap a
+ssConfig p = setPort p
+           $ setBind "127.0.0.1"
+           $ setAccessLog ConfigNoLog
+           $ setErrorLog ConfigNoLog
+           $ setVerbose False mempty
+
+ssHandler :: Snap ()
+ssHandler = route [("report", Snap.Core.method POST receiveStatsSnap)
+                  ,("stat", Snap.Core.method GET sendStatsSnap)
+                  ,("stat/merge", Snap.Core.method GET sendMergedStatsSnap)
+                  ]
+
+receiveStatsSnap :: Snap ()
+receiveStatsSnap =
+    handleStatsExceptions "Exception while receiving stats" $ do
+        !s <- readRequestBody 65536
+        liftIO $ do
+            pint <- ssPurgeInterval . fromJust <$> readIORef ssConf
+            let !int = toNominalDiffTime pint
+            receiveStats' s int
+        finishWith emptyResponse
+
+sendStatsSnap :: Snap ()
+sendStatsSnap =
+    handleStatsExceptions "Exception while sending stats" $ do
+        s <- liftIO sendStats'
+        modifyResponse $ setContentType "application/json"
+        writeLBS $ encode $ M.map (second $ ML.filter $ not . null) s
+
+sendMergedStatsSnap :: Snap ()
+sendMergedStatsSnap =
+    handleStatsExceptions "Exception while sending stats" $ do
+        s <- liftIO sendMergedStats'
+        modifyResponse $ setContentType "application/json"
+        writeLBS $ encode s
 
 handleStatsExceptions :: String -> Snap () -> Snap ()
 handleStatsExceptions cmsg = handleAny $ \e ->
@@ -394,6 +437,9 @@ statsServer cf fstRun = do
         else threadDelaySec 5
     return ""
 ngxExportServiceIOYY 'statsServer
+
+#endif
+
 
 reportPeers :: ByteString -> IO ContentHandlerResult
 reportPeers = const $ do

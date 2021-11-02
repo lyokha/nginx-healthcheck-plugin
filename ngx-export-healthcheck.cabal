@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.0
+version:               1.1
 synopsis:              Active health check and monitor for Nginx backends
 description:           Active health check and monitor for Nginx backends
 author:                Alexey Radkov <alexey.radkov@gmail.com>
@@ -7,6 +7,9 @@ maintainer:            Alexey Radkov <alexey.radkov@gmail.com>
 category:              Network
 build-type:            Simple
 cabal-version:         1.20
+
+flag SnapStatsServer
+  description:         Build Snap server to collect stats.
 
 library
   default-language:    Haskell2010
@@ -16,15 +19,19 @@ library
                      , http-types
                      , containers
                      , async
-                     , enclosed-exceptions
                      , bytestring
                      , vector
                      , text
                      , aeson >= 1.0.0.0
                      , time >= 1.9.1
-                     , snap-server
-                     , snap-core
                      , safe
+
+  if flag(SnapStatsServer)
+    build-depends:     snap-core
+                     , snap-server
+                     , enclosed-exceptions
+    cpp-options:      -DSNAP_STATS_SERVER
+
 
   exposed-modules:     NgxExport.Healthcheck
 

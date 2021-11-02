@@ -23,6 +23,8 @@ Table of contents
     + [Normal upstreams, only health checks](#normal-upstreams-only-health-checks)
     + [Normal upstreams, only monitoring](#normal-upstreams-only-monitoring)
     + [Shared upstreams, health checks and monitoring](#shared-upstreams-health-checks-and-monitoring)
+- [Nginx-based monitoring of normal upstreams](#nginx-based-monitoring-of-normal-upstreams)
+    + [Normal upstreams, health checks and monitoring, related changes](#normal-upstreams-health-checks-and-monitoring-related-changes)
 - [Periodic checks of healthy peers](#periodic-checks-of-healthy-peers)
 - [Collecting Prometheus metrics](#collecting-prometheus-metrics)
     + [Normal upstreams, related changes](#normal-upstreams-related-changes)
@@ -530,6 +532,103 @@ Below is a sample stats output for shared upstreams.
 }
 ```
 
+Nginx-based monitoring of normal upstreams
+------------------------------------------
+
+Service *statsServer* is implemented using *Snap framework*. Basically, native
+Nginx implementation is not easy because the service must listen on a single
+(not duplicated) file descriptor which is not the case when Nginx spawns more
+than one worker processes. Running *statsServer* as a shared service is an
+elegant solution as shared services guarantee that they occupy only one worker
+at a time. However, *nginx-haskell-module* provides directive *single_listener*
+which can be used to apply the required restriction in a custom Nginx virtual
+server. This directive requires that the virtual server listens with *reuseport* 
+and is only available on Linux with socket option *SO_ATTACH_REUSEPORT_CBPF*.
+
+Let's replace *statsServer* from the example with normal upstreams and
+monitoring with an Nginx-based monitoring service using *single_listener* and
+listening on port *8200*.
+
+### Normal upstreams, health checks and monitoring, related changes
+
+```nginx
+    haskell_run_service checkPeers $hs_service_healthcheck
+        'hs_service_healthcheck
+         Conf { upstreams     = ["u_backend"
+                                ,"u_backend0"
+                                ,"u_backend1"
+                                ]
+              , interval      = Sec 5
+              , peerTimeout   = Sec 2
+              , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epPassRule = DefaultPassRule
+                                              }
+              , sendStatsPort = Just 8200
+              }
+        ';
+
+# ...
+
+
+    haskell_run_service checkPeers $hs_service_healthcheck0
+        'hs_service_healthcheck0
+         Conf { upstreams     = ["u_backend"]
+              , interval      = Sec 5
+              , peerTimeout   = Sec 2
+              , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epPassRule =
+                                                      PassRuleByHttpStatus
+                                                      [200, 404]
+                                              }
+              , sendStatsPort = Just 8200
+              }
+        ';
+
+# ...
+
+    haskell_var_empty_on_error $hs_stats;
+
+# ...
+
+        location /stat {
+            allow 127.0.0.1;
+            deny all;
+            proxy_pass http://127.0.0.1:8200;
+        }
+
+# ...
+
+    server {
+        listen          8200 reuseport;
+        server_name     stats;
+
+        single_listener on;
+
+        location /report {
+            haskell_run_async_on_request_body receiveStats $hs_stats "Min 1";
+
+            if ($hs_stats = '') {
+                return 400;
+            }
+
+            return 200;
+        }
+
+        location /stat {
+            haskell_async_content sendStats noarg;
+        }
+
+        location /stat/merge {
+            haskell_async_content sendMergedStats noarg;
+        }
+    }
+}
+```
+
+Handler *receiveStats* accepts time interval corresponding to the value of
+*ssPurgeInterval* from service *statsServer*. If the value is not readable then
+it is supposed to be *Min 5*.
+
 Periodic checks of healthy peers
 --------------------------------
 
@@ -1002,8 +1101,12 @@ install the module with command
 $ cabal --ignore-sandbox v1-install
 ```
 
-(you may prefer the *new-style* cabal command *v2-install*). Then, in the custom
-library, import the module.
+You may prefer the *new-style* cabal command *v2-install*. To disable building
+the Snap monitoring server, add option *-f -snapstatsserver* to the command.
+Notice that cabal skips building Snap automatically if the dependency check
+fails. To enforce building Snap, use option *-f snapstatsserver*.
+
+Then, in the custom library, import the module.
 
 ```haskell
 import NgxExport.Healthcheck ()
@@ -1017,6 +1120,11 @@ file of the shared library be *custom.hs*.
 ```ShellSession
 $ ghc -Wall -O2 -dynamic -shared -fPIC -lHSrts_thr-ghc$(ghc --numeric-version) -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
 ```
+
+To correctly build *ngx_healthcheck.so* from *ngx_healthcheck.hs* shipped with
+this plugin in the root directory, option *-i* must be additionally specified.
+This makes *ghc* link against the library from module *NgxExport.Healthcheck*
+instead of building *NgxExport/Healthcheck.hs* once again.
 
 It's time to collect all dependent libraries, patch *custom.so*, and install
 everything: they are the same steps as when doing *make hslibs* and *make
