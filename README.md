@@ -535,15 +535,16 @@ Below is a sample stats output for shared upstreams.
 Nginx-based monitoring of normal upstreams
 ------------------------------------------
 
-Service *statsServer* is implemented using *Snap framework*. Basically, native
+Service *statsServer* is implemented using *Snap framework*. Basically, a native
 Nginx implementation is not easy because the service must listen on a single
 (not duplicated) file descriptor which is not the case when Nginx spawns more
 than one worker processes. Running *statsServer* as a shared service is an
 elegant solution as shared services guarantee that they occupy only one worker
 at a time. However, *nginx-haskell-module* provides directive *single_listener*
 which can be used to apply the required restriction in a custom Nginx virtual
-server. This directive requires that the virtual server listens with *reuseport* 
-and is only available on Linux with socket option *SO_ATTACH_REUSEPORT_CBPF*.
+server. This directive requires that the virtual server listens with option
+*reuseport* and is only available on Linux with socket option
+*SO_ATTACH_REUSEPORT_CBPF*.
 
 Let's replace *statsServer* from the example with normal upstreams and
 monitoring with an Nginx-based monitoring service using *single_listener* and
@@ -625,9 +626,9 @@ listening on port *8200*.
 }
 ```
 
-Handler *receiveStats* accepts time interval corresponding to the value of
-*ssPurgeInterval* from service *statsServer*. If the value is not readable then
-it is supposed to be *Min 5*.
+Handler *receiveStats* accepts a time interval corresponding to the value of
+*ssPurgeInterval* from service *statsServer*. If the value is not readable (say,
+*noarg*) then it is defaulted to *Min 5*.
 
 Periodic checks of healthy peers
 --------------------------------

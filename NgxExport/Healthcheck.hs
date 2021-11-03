@@ -45,7 +45,7 @@ import           Data.Time.Clock
 import           Data.Time.Calendar
 import           Safe
 
-#if SNAP_STATS_SERVER
+#ifdef SNAP_STATS_SERVER
 import           Control.Monad.IO.Class
 import           Control.Exception.Enclosed (handleAny)
 import           Snap.Http.Server
@@ -375,7 +375,7 @@ sendMergedStats = const $
 ngxExportAsyncHandler 'sendMergedStats
 
 
-#if SNAP_STATS_SERVER
+#ifdef SNAP_STATS_SERVER
 
 ssConfig :: Int -> Config Snap a
 ssConfig p = setPort p
