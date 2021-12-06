@@ -630,6 +630,9 @@ Handler *receiveStats* accepts a time interval corresponding to the value of
 *ssPurgeInterval* from service *statsServer*. If the value is not readable (say,
 *noarg*) then it is defaulted to *Min 5*.
 
+Notice that the monitoring virtual server must listen on address *127.0.0.1*
+because service *checkPeers* reports stats to this address.
+
 Periodic checks of healthy peers
 --------------------------------
 
