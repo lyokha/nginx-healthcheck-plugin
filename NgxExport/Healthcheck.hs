@@ -315,8 +315,8 @@ updatePeers (C8.lines -> ls)
     | otherwise = throwUserError "Parse error when reading saved peers data!"
 ngxExportServiceHook 'updatePeers
 
-receiveStats' :: L.ByteString -> NominalDiffTime -> IO ()
-receiveStats' v int = do
+updateStats :: L.ByteString -> NominalDiffTime -> IO ()
+updateStats v int = do
     let s = decode' v
     when (isNothing s) $ throwUserError "Unreadable stats!"
     let (pid, skey, ps) = fromJust s
@@ -343,7 +343,7 @@ receiveStats' v int = do
 receiveStats :: L.ByteString -> ByteString -> IO L.ByteString
 receiveStats v sint = do
     let !int = toNominalDiffTime $ readDef (Min 5) $ C8.unpack sint
-    receiveStats' v int
+    updateStats v int
     return "done"
 ngxExportAsyncOnReqBody 'receiveStats
 
@@ -397,7 +397,7 @@ receiveStatsSnap =
         liftIO $ do
             pint <- ssPurgeInterval . fromJust <$> readIORef ssConf
             let !int = toNominalDiffTime pint
-            receiveStats' s int
+            updateStats s int
         finishWith emptyResponse
 
 sendStatsSnap :: Snap ()
