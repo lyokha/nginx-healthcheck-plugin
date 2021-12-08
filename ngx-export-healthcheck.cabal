@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.1
+version:               1.2
 synopsis:              Active health check and monitor for Nginx backends
 description:           Active health check and monitor for Nginx backends
 author:                Alexey Radkov <alexey.radkov@gmail.com>
@@ -23,7 +23,7 @@ library
                      , vector
                      , text
                      , aeson >= 1.0.0.0
-                     , time >= 1.9.1
+                     , time
                      , safe
 
   if flag(SnapStatsServer)

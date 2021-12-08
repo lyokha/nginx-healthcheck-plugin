@@ -39,7 +39,9 @@ import           Foreign.Storable
 import           Foreign.Marshal.Alloc
 import           Foreign.Marshal.Utils
 import           Data.Aeson
+#if MIN_VERSION_time(1,9,1)
 import           Data.Fixed
+#endif
 import           Data.Int
 import           Data.Time.Clock
 import           Data.Time.Calendar
@@ -108,10 +110,6 @@ data StatsServerConf = StatsServerConf { ssPort          :: Int
                                        , ssPurgeInterval :: TimeInterval
                                        } deriving Read
 
-ssConf :: IORef (Maybe StatsServerConf)
-ssConf = unsafePerformIO $ newIORef Nothing
-{-# NOINLINE ssConf #-}
-
 stats :: IORef (UTCTime, Map Int32 (UTCTime, ML.Map ServiceKey Peers))
 stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 {-# NOINLINE stats #-}
@@ -119,13 +117,20 @@ stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 both :: Arrow a => a b c -> a (b, b) (c, c)
 both = join (***)
 
+#if MIN_VERSION_time(1,9,1)
 asIntegerPart :: forall a. HasResolution a => Integer -> Fixed a
 asIntegerPart = MkFixed . (resolution (undefined :: Fixed a) *)
 {-# SPECIALIZE INLINE asIntegerPart :: Integer -> Pico #-}
+#endif
 
 toNominalDiffTime :: TimeInterval -> NominalDiffTime
 toNominalDiffTime =
-    secondsToNominalDiffTime . asIntegerPart . fromIntegral . toSec
+#if MIN_VERSION_time(1,9,1)
+    secondsToNominalDiffTime . asIntegerPart
+#else
+    fromRational . toRational . secondsToDiffTime
+#endif
+    . fromIntegral . toSec
 
 getUrl :: ServiceKey -> Url -> IO HttpStatus
 getUrl skey url = do
@@ -384,20 +389,19 @@ ssConfig p = setPort p
            $ setErrorLog ConfigNoLog
            $ setVerbose False mempty
 
-ssHandler :: Snap ()
-ssHandler = route [("report", Snap.Core.method POST receiveStatsSnap)
-                  ,("stat", Snap.Core.method GET sendStatsSnap)
-                  ,("stat/merge", Snap.Core.method GET sendMergedStatsSnap)
-                  ]
+ssHandler :: TimeInterval -> Snap ()
+ssHandler tint = do
+    let !int = toNominalDiffTime tint
+    route [("report", Snap.Core.method POST $ receiveStatsSnap int)
+          ,("stat", Snap.Core.method GET sendStatsSnap)
+          ,("stat/merge", Snap.Core.method GET sendMergedStatsSnap)
+          ]
 
-receiveStatsSnap :: Snap ()
-receiveStatsSnap =
+receiveStatsSnap :: NominalDiffTime -> Snap ()
+receiveStatsSnap int =
     handleStatsExceptions "Exception while receiving stats" $ do
         !s <- readRequestBody 65536
-        liftIO $ do
-            pint <- ssPurgeInterval . fromJust <$> readIORef ssConf
-            let !int = toNominalDiffTime pint
-            updateStats s int
+        liftIO $ updateStats s int
         finishWith emptyResponse
 
 sendStatsSnap :: Snap ()
@@ -423,17 +427,14 @@ handleStatsExceptions cmsg = handleAny $ \e ->
 
 statsServer :: ByteString -> Bool -> IO L.ByteString
 statsServer cf fstRun = do
-    cf' <- readIORef ssConf >>=
-        maybe (do
-                  let cf' = readMay $ C8.unpack cf
-                  when (isNothing cf') $ throwIO $
-                      TerminateWorkerProcess
-                          "Unreadable stats server configuration!"
-                  atomicWriteIORef ssConf cf'
-                  return $ fromJust cf'
-              ) return
     if fstRun
-        then simpleHttpServe (ssConfig $ ssPort cf') ssHandler
+        then do
+            cf' <- maybe (throwIO $
+                             TerminateWorkerProcess
+                                 "Unreadable stats server configuration!"
+                         ) return $ readMay $ C8.unpack cf
+            simpleHttpServe (ssConfig $ ssPort cf')
+                            (ssHandler $ ssPurgeInterval cf')
         else threadDelaySec 5
     return ""
 ngxExportServiceIOYY 'statsServer
