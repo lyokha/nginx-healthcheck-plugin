@@ -389,13 +389,11 @@ ssConfig p = setPort p
            $ setErrorLog ConfigNoLog
            $ setVerbose False mempty
 
-ssHandler :: TimeInterval -> Snap ()
-ssHandler tint = do
-    let !int = toNominalDiffTime tint
-    route [("report", Snap.Core.method POST $ receiveStatsSnap int)
-          ,("stat", Snap.Core.method GET sendStatsSnap)
-          ,("stat/merge", Snap.Core.method GET sendMergedStatsSnap)
-          ]
+ssHandler :: NominalDiffTime -> Snap ()
+ssHandler int = route [("report", Snap.Core.method POST $ receiveStatsSnap int)
+                      ,("stat", Snap.Core.method GET sendStatsSnap)
+                      ,("stat/merge", Snap.Core.method GET sendMergedStatsSnap)
+                      ]
 
 receiveStatsSnap :: NominalDiffTime -> Snap ()
 receiveStatsSnap int =
@@ -433,8 +431,8 @@ statsServer cf fstRun = do
                              TerminateWorkerProcess
                                  "Unreadable stats server configuration!"
                          ) return $ readMay $ C8.unpack cf
-            simpleHttpServe (ssConfig $ ssPort cf')
-                            (ssHandler $ ssPurgeInterval cf')
+            let !int = toNominalDiffTime $ ssPurgeInterval cf'
+            simpleHttpServe (ssConfig $ ssPort cf') $ ssHandler int
         else threadDelaySec 5
     return ""
 ngxExportServiceIOYY 'statsServer
