@@ -269,7 +269,7 @@ foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck"
                      CString -> Ptr CString -> Ptr CSize -> IO CIntPtr
 
 updatePeers :: ByteString -> IO L.ByteString
-updatePeers (C8.lines -> ls) 
+updatePeers (C8.lines -> ls)
     | (B.splitAt 1 -> (readFlag -> ck, skey)) : us <- ls = do
         let skey'  = T.decodeUtf8 skey
             skey'' = L.fromStrict skey
