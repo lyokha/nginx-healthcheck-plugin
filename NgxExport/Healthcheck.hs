@@ -196,7 +196,7 @@ checkPeers :: ByteString -> Bool -> IO L.ByteString
 checkPeers cf fstRun = do
     let (skey, cf') = C8.break isSpace $ C8.dropWhile isSpace cf
         skey' = T.decodeUtf8 skey
-    cf'' <- M.lookup skey' <$> readIORef conf >>=
+    cf'' <- readIORef conf >>=
         maybe (do
                   let cf'' = readMay $ C8.unpack cf'
                   when (isNothing cf'') $ throwIO $
@@ -204,7 +204,7 @@ checkPeers cf fstRun = do
                   let cf''' = fromJust cf''
                   atomicModifyIORef' conf $ (, ()) . M.insert skey' cf'''
                   return cf'''
-              ) return
+              ) return . M.lookup skey'
     let !us  = upstreams cf''
         ep   = endpoint cf''
         int  = toSec $ interval cf''
@@ -213,9 +213,9 @@ checkPeers cf fstRun = do
     if fstRun
         then do
             peers' <- lookupServiceKey skey' <$> readIORef peers
-            let peers'' = foldr (flip (M.insertWith $ flip const) []) peers' us
+            let peers'' = foldr (flip (M.insertWith $ const id) []) peers' us
             atomicModifyIORef' peers $ (, ()) . M.insert skey' peers''
-            M.lookup skey' <$> readIORef httpManager >>=
+            readIORef httpManager >>=
                 maybe (atomicModifyIORef' httpManager $
                           (, ()) . M.insert skey'
                                    (unsafePerformIO $
@@ -224,7 +224,7 @@ checkPeers cf fstRun = do
                                            responseTimeoutMicro $ pto * 1e6
                                        }
                                    )
-                      ) (void . return)
+                      ) (void . return) . M.lookup skey'
             atomicModifyIORef' active $ (, ()) . (skey' :)
         else threadDelaySec int
     peers' <- lookupServiceKey skey' <$> readIORef peers
