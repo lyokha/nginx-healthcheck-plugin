@@ -15,7 +15,8 @@ library
   default-language:    Haskell2010
   build-depends:       base >=4.8 && <5
                      , ngx-export >= 1.7.1
-                     , http-client >= 0.5.0
+                     , http-client
+                     , http-client-brread-timeout
                      , http-types
                      , containers
                      , async

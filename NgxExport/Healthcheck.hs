@@ -6,9 +6,7 @@ module NgxExport.Healthcheck where
 
 import           NgxExport
 import           Network.HTTP.Client
-import           Network.HTTP.Client.Internal (ResponseTimeout (..)
-                                              ,mResponseTimeout
-                                              )
+import           Network.HTTP.Client.BrReadWithTimeout
 import           Network.HTTP.Types.Status
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
@@ -18,7 +16,6 @@ import           Control.Arrow
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Exception
-import           System.Timeout
 import           System.IO.Unsafe
 import           Data.IORef
 import           Data.ByteString (ByteString)
@@ -55,7 +52,7 @@ import           Safe
 import           Control.Monad.IO.Class
 import           Control.Exception.Enclosed (handleAny)
 import           Snap.Http.Server
-import           Snap.Core hiding (Request, Response, withResponse)
+import           Snap.Core
 #endif
 
 type Upstream   = Text
@@ -135,31 +132,6 @@ toNominalDiffTime =
     fromRational . toRational . secondsToDiffTime
 #endif
     . fromIntegral . toSec
-
-fromResponseTimeout :: Request -> Manager -> Int
-fromResponseTimeout req man =
-    case responseTimeout req of
-        ResponseTimeoutDefault ->
-            case mResponseTimeout man of
-                ResponseTimeoutDefault -> 30e6
-                ResponseTimeoutNone -> -1
-                ResponseTimeoutMicro u -> u
-        ResponseTimeoutNone -> -1
-        ResponseTimeoutMicro u -> u
-
-brReadWithTimeout :: Int -> Request -> BodyReader -> IO ByteString
-brReadWithTimeout tmo req res = do
-    br <- timeout tmo res
-    case br of
-        Nothing -> throwIO $ HttpExceptionRequest
-            req { responseTimeout = ResponseTimeoutMicro tmo } ResponseTimeout
-        Just v -> return v
-
-httpLbsBrReadWithTimeout :: Request -> Manager -> IO (Response L.ByteString)
-httpLbsBrReadWithTimeout req man = withResponse req man $ \res -> do
-    let tmo = fromResponseTimeout req man
-    bss <- brConsume $ brReadWithTimeout tmo req $ responseBody res
-    return res { responseBody = L.fromChunks bss }
 
 getUrl :: ServiceKey -> Url -> IO HttpStatus
 getUrl skey url = do
