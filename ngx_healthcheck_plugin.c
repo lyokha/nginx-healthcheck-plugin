@@ -9,10 +9,9 @@ typedef struct {
 static ngx_rbtree_t       *upstreams_rbt;
 static ngx_rbtree_node_t   upstreams_snt;
 
-ngx_int_t plugin_ngx_http_haskell_healthcheck(void *cycle_data, void *umcf_data,
-    volatile void *ntime_data, ngx_uint_t check_peers_in, ngx_uint_t active,
-    u_char *peers_in, u_char **peers_out, size_t *peers_len);
-
+ngx_int_t plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle,
+    void *umcf_data, volatile void *ntime_data, ngx_uint_t check_peers_in,
+    ngx_uint_t active, u_char *peers_in, u_char **peers_out, size_t *peers_len);
 static void plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle,
     time_t now, ngx_http_upstream_rr_peer_t *peer, ngx_uint_t good);
 static void wrap_ngx_str_rbtree_insert_value(ngx_rbtree_node_t *temp,
@@ -21,11 +20,10 @@ static uint32_t local_ngx_crc32_long(u_char *p, size_t len);
 
 
 ngx_int_t
-plugin_ngx_http_haskell_healthcheck(void *cycle_data, void *umcf_data,
+plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle, void *umcf_data,
     volatile void *ntime_data, ngx_uint_t check_peers_in, ngx_uint_t active,
     u_char *peers_in, u_char **peers_out, size_t *peers_len)
 {
-    ngx_cycle_t                     *cycle = cycle_data;
     ngx_http_upstream_main_conf_t   *umcf = umcf_data;
     volatile ngx_time_t             *ntime = ntime_data;
 

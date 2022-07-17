@@ -996,113 +996,12 @@ Building and installation
 -------------------------
 
 The plugin contains Haskell and C parts, and thus it requires *ghc*, *cabal*,
-*gcc*, and a directory with the Nginx sources. The trickiest part is building
-the C plugin. There are two options for that: static compilation and linkage
-against the resulting shared library, and building an Nginx dynamic module.
+*gcc*, and a directory with the Nginx sources.
 
-For the first build option, environment variable *NGX_HOME* with the directory
-where the Nginx sources are located must be set.
+To install module *NgxExport.Healthcheck*, run
 
 ```ShellSession
-$ export NGX_HOME=/path/to/Nginx/sources
-```
-
-Then run *cabal update* (optionally, when the list of Haskell packages has never
-been built or is too old), and *make*.
-
-```ShellSession
-$ cabal update
-$ make
-```
-
-For the second build option, go to the directory with the Nginx sources, run
-*configure* with option
-*--add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources*, then *make
-modules* and copy the built library to some directory where this can be loaded
-by the plugin in the run-time (let this directory be */var/lib/nginx/hslibs/*,
-you may need to patch the resulting shared library with *make patchlib*, see
-below).
-
-```ShellSession
-$ ./configure --add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources
-$ make modules
-```
-
-Copy the plugin into the target directory being a superuser.
-
-```ShellSession
-# cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
-```
-
-Notice that we added prefix *lib* to the module's name!
-
-Then go back to this plugin's directory, set environment variable
-*NGX_MODULE_PATH*, and build the plugin just like in the first build option.
-
-```ShellSession
-$ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
-$ cabal update
-$ make
-```
-
-This must create a cabal sandbox, then build all dependencies in it, compile the
-C plugin (if the first build option was chosen), and finally compile and link
-shared library *ngx_healthcheck.so*. If all went well, and the target machine is
-the same as the builder, then you may copy the library to the directory that is
-specified in directive `haskell load`, i.e. */var/lib/nginx/*. However, in many
-cases this simple approach won't work smoothly because of lack of access rights
-to the sandbox directories from the Nginx workers' owner (normally, *nginx* or
-*nobody*). Additionally, these directories are supposed to be deleted when
-running *make clean*.
-
-A better approach is to collect all dependent Haskell libraries in a single
-directory. This approach suits well for remote deployment, even if the target
-system does not have *ghc* installed.
-
-Run
-
-```ShellSession
-$ make hslibs
-```
-
-and look into directory *hslibs/*: it should contain many shared libraries
-*ngx_healthcheck.so* depends on. The libraries must be copied to the target
-machine in a directory the dynamic linker is aware of. If the target directory
-is not known to the linker (say, you want to install the libraries into
-directory */var/lib/nginx/hslibs/*), then *ngx_healthcheck.so* must be patched
-to provide corresponding *runpath*.
-
-```ShellSession
-$ export HSLIBS_INSTALL_DIR=/var/lib/nginx/hslibs
-$ make patchlib
-```
-
-This makes use of utility [*patchelf*](https://nixos.org/patchelf.html), so the
-latter must be available in your system.
-
-When built objects, collected libraries, and the cabal sandbox are no longer
-needed, run
-
-```ShellSession
-$ make clean
-```
-
-to delete them all. Or run
-
-```ShellSession
-$ make lenient-clean
-```
-
-to delete all except the sandbox.
-
-### Building module NgxExport.Healthcheck
-
-When building a custom Haskell library with the health check functionality, a
-separate Haskell health check module is required. It is easy to build and
-install the module with command
-
-```ShellSession
-$ cabal --ignore-sandbox v1-install
+$ cabal v1-install
 ```
 
 You may prefer the *new-style* cabal command *v2-install*. To disable building
@@ -1110,18 +1009,38 @@ the Snap monitoring server, add option *-f -snapstatsserver* to the command.
 Notice that cabal skips building Snap automatically if the dependency check
 fails. To enforce building Snap, use option *-f snapstatsserver*.
 
-Then, in the custom library, import the module.
+Then go to the directory with the Nginx source code,
+
+```ShellSession
+$ cd /path/to/nginx/sources
+```
+
+compile,
+
+```ShellSession
+$ ./configure --add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources
+$ make modules
+```
+
+and install *ngx_healthcheck_plugin.so* being a superuser.
+
+```ShellSession
+# cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
+```
+
+Notice that we added prefix *lib* to the module's name!
+
+When building a custom library (such as *ngx_healthcheck.hs*), import the
+Haskell module.
 
 ```haskell
 import NgxExport.Healthcheck ()
 ```
 
-When building the shared library, link it against the C code. The easiest way to
-achieve this goal is using the second build option with variable
-*NGX_MODULE_PATH* as it was explained previously. Let the name of the source
-file of the shared library be *custom.hs*.
+The custom library must be linked against the C code.
 
 ```ShellSession
+$ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
 $ ghc -Wall -O2 -dynamic -shared -fPIC -lHSrts_thr-ghc$(ghc --numeric-version) -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
 ```
 
@@ -1130,12 +1049,13 @@ this plugin in the root directory, option *-i* must be additionally specified.
 This makes *ghc* link against the library from module *NgxExport.Healthcheck*
 instead of building *NgxExport/Healthcheck.hs* once again.
 
-It's time to collect all dependent libraries, patch *custom.so*, and install
-everything: they are the same steps as when doing *make hslibs* and *make
-patchlib*, but this time we are going to use utility
+It's time to collect all dependent libraries, patch *custom.so* by injecting
+correct *rpath* values, and install everything. The custom library can be
+patched by utility
 [*hslibdeps*](https://github.com/lyokha/nginx-haskell-module/blob/master/utils/README.md#utility-hslibdeps).
 
 ```ShellSession
+$ export HSLIBS_INSTALL_DIR=/var/lib/nginx/hslibs
 $ hslibdeps -t $HSLIBS_INSTALL_DIR custom.so
 ```
 
