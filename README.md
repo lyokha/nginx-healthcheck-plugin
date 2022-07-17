@@ -31,7 +31,6 @@ Table of contents
     + [Shared upstreams, related changes](#shared-upstreams-related-changes)
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
-    + [Building module NgxExport.Healthcheck](#building-module-ngxexporthealthcheck)
 
 What the active health checks here means
 ----------------------------------------
