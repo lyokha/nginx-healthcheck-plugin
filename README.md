@@ -66,6 +66,16 @@ hierarchy. The meaning of the *health check service* will be explained later.
 Examples
 --------
 
+In all examples below, the shared library gets built from a simple Haskell
+code which only exports service handlers from module *NgxExport.Healthcheck*.
+The code is saved in file *ngx_healthcheck.hs*.
+
+```haskell
+module NgxHealthcheck where
+
+import NgxExport.Healthcheck ()
+```
+
 ### Normal upstreams, health checks and monitoring
 
 ```nginx
@@ -643,11 +653,6 @@ running periodic active checks of the corresponding upstreams. For this, let's
 use Haskell module
 [*NgxExport.Tools.Subrequest*](https://hackage.haskell.org/package/ngx-export-tools-extra/docs/NgxExport-Tools-Subrequest.html).
 
-Here we have to mix the health checks and the *subrequest* functionality in a
-single shared library, this means that we must use module
-*NgxExport.Healthcheck* and build the library in the way described in the
-[*dedicated section*](#building-module-ngxexporthealthcheck).
-
 Below is the source code of the shared library.
 
 ```haskell
@@ -1042,11 +1047,6 @@ The custom library must be linked against the C code.
 $ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
 $ ghc -Wall -O2 -dynamic -shared -fPIC -lHSrts_thr-ghc$(ghc --numeric-version) -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
 ```
-
-To correctly build *ngx_healthcheck.so* from *ngx_healthcheck.hs* shipped with
-this plugin in the root directory, option *-i* must be additionally specified.
-This makes *ghc* link against the library from module *NgxExport.Healthcheck*
-instead of building *NgxExport/Healthcheck.hs* once again.
 
 It's time to collect all dependent libraries, patch *custom.so* by injecting
 correct *rpath* values, and install everything. The custom library can be
