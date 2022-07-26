@@ -43,6 +43,11 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
+      - name: Install prove
+        uses: perl-actions/install-with-cpanm@v1
+        with:
+          install: "Test::Nginx"
+          tests: false
       - name: Install and test
         env:
           GHCVER: ${{ matrix.ghc }}
@@ -97,6 +102,8 @@ jobs:
                          --add-dynamic-module=..
           make -j2
           cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
+          export PATH=$(pwd)/objs:$PATH
+          export TEST_NGINX_HCLIB_DIR=$(pwd)/objs
           cd -
 
           cabal v1-configure
@@ -131,6 +138,8 @@ jobs:
               ngx_healthcheck_prometheus.hs -o ngx_healthcheck_prometheus.so \
               -fforce-recomp
           cd -
+
+          prove -r test/t
 
           set +e
 
