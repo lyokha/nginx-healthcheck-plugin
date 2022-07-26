@@ -138,6 +138,7 @@ jobs:
           cd -
 
           cd test
+          sudo sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
           LD_LIBRARY_PATH="$NGX_MODULE_PATH" prove -r t
           cd -
 
