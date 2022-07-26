@@ -102,7 +102,8 @@ jobs:
                          --add-dynamic-module=..
           make -j2
           cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
-          export PATH=$(pwd)/objs:$PATH
+          export NGX_MODULE_PATH="$(pwd)/objs"
+          export PATH="$NGX_MODULE_PATH:$PATH"
           cd -
 
           cabal v1-configure
@@ -112,35 +113,32 @@ jobs:
               (cd dist/sdist && cabal v1-install --force-reinstalls "$SRC_TGZ")
 
           cd simple
-          export NGX_MODULE_PATH=../nginx-${NGXVER}/objs
           ghc -Wall -O2 -dynamic -shared -fPIC \
               -lHSrts_thr-ghc$(ghc --numeric-version) \
-              -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
+              -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck.hs -o ngx_healthcheck.so \
               -fforce-recomp
-          export TEST_NGINX_HCLIB_DIR=$(pwd)
+          export TEST_NGINX_HCLIB_DIR="$(pwd)"
           cd -
 
           cd periodic
-          export NGX_MODULE_PATH=../nginx-${NGXVER}/objs
           ghc -Wall -O2 -dynamic -shared -fPIC \
               -lHSrts_thr-ghc$(ghc --numeric-version) \
-              -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
+              -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck_periodic.hs -o ngx_healthcheck_periodic.so \
               -fforce-recomp
           cd -
 
           cd prometheus
-          export NGX_MODULE_PATH=../nginx-${NGXVER}/objs
           ghc -Wall -O2 -dynamic -shared -fPIC \
               -lHSrts_thr-ghc$(ghc --numeric-version) \
-              -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
+              -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck_prometheus.hs -o ngx_healthcheck_prometheus.so \
               -fforce-recomp
           cd -
 
           cd test
-          prove -r t
+          LD_LIBRARY_PATH="$NGX_MODULE_PATH" prove -r t
           cd -
 
           set +e
