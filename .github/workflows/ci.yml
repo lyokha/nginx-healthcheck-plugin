@@ -62,7 +62,8 @@ jobs:
               cabal v1-update
           fi
           cabal v1-install --only-dependencies
-          cabal v1-install ngx-export-tools ngx-export-tools-extra binary
+          cabal v1-install -f -ede -f -pcre -f -snapaggregateserver \
+              ngx-export-tools-extra
 
           if [ "$NGXVER" == head ]
           then
