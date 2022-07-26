@@ -103,7 +103,6 @@ jobs:
           make -j2
           cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
           export PATH=$(pwd)/objs:$PATH
-          export TEST_NGINX_HCLIB_DIR=$(pwd)/objs
           cd -
 
           cabal v1-configure
@@ -119,6 +118,7 @@ jobs:
               -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck.hs -o ngx_healthcheck.so \
               -fforce-recomp
+          export TEST_NGINX_HCLIB_DIR=$(pwd)
           cd -
 
           cd periodic
@@ -139,7 +139,9 @@ jobs:
               -fforce-recomp
           cd -
 
-          prove -r test/t
+          cd test
+          prove -r t
+          cd -
 
           set +e
 
