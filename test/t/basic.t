@@ -116,6 +116,6 @@ __DATA__
 === TEST 2: stat
 --- request
     GET /stat
---- response_body_like: ^\{"\d+":\["[^"]+Z",\{"hs_service_healthcheck":\{"u_backend":\["127.0.0.1:8020","127.0.0.1:8030"\]\},"hs_service_healthcheck0":\{"u_backend":\["127.0.0.1:8020","127.0.0.1:8030"\]\}\}\]\}$
+--- response_body_like: ^\{"\d+":\["[^"]+Z",\{"hs_service_healthcheck":\{"u_backend":\[(?:"127.0.0.1:8020",){1,2}(?:"127.0.0.1:8030",?){1,2}\]\},"hs_service_healthcheck0":\{"u_backend":\[(?:"127.0.0.1:8020",){1,2}(?:"127.0.0.1:8030",?){1,2}\]\}\}\]\}$
 --- error_code: 200
 
