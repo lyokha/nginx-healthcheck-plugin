@@ -1,0 +1,134 @@
+name: CI
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        ghc: [8.0.2, 8.2.2, 8.4.4, 8.6.5, 8.8.4, 8.10.7]
+        cabal: [3.4.0.0]
+        nginx: [1.18.0]
+        nginx-haskell-module: [3.1.0]
+        experimental: [false]
+        include:
+          - ghc: 9.2.2
+            cabal: 3.6.2.0
+            nginx: 1.22.0
+            nginx-haskell-module: head
+            experimental: false
+          - ghc: 9.2.2
+            cabal: 3.6.2.0
+            nginx: head
+            nginx-haskell-module: head
+            experimental: true
+          - ghc: 9.0.2
+            cabal: 3.4.0.0
+            nginx: 1.20.2
+            nginx-haskell-module: head
+            experimental: false
+          - ghc: 9.0.2
+            cabal: 3.4.0.0
+            nginx: head
+            nginx-haskell-module: head
+            experimental: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install GHC and Cabal
+        uses: haskell/actions/setup@v1
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: ${{ matrix.cabal }}
+      - name: Install and test
+        env:
+          GHCVER: ${{ matrix.ghc }}
+          NGXVER: ${{ matrix.nginx }}
+          CABALVER: ${{ matrix.cabal }}
+          NGXHMVER: ${{ matrix.nginx-haskell-module }}
+        run: |
+          set -e
+
+          cabal --version
+          echo "$(ghc --version) "`
+              `"[$(ghc --print-project-git-commit-id 2>/dev/null || echo '?')]"
+          if echo "$CABALVER" | grep -q '^3\.6'
+          then
+              cabal v2-update
+          else
+              cabal v1-update
+          fi
+          cabal v1-install --only-dependencies
+
+          if [ "$NGXVER" == head ]
+          then
+              git clone https://github.com/nginx/nginx.git nginx-head
+          else
+              wget http://nginx.org/download/nginx-${NGXVER}.tar.gz &&
+                  tar xzvf nginx-${NGXVER}.tar.gz
+          fi
+
+          if [ "$NGXHMVER" == head ]
+          then
+              git clone https://github.com/lyokha/nginx-haskell-module.git \
+                  nginx-haskell-module-head
+          else
+              wget "https://github.com/lyokha/nginx-haskell-module/"`
+                  `"archive/refs/tags/${NGXHMVER}.tar.gz" \
+                      -O nginx-haskell-module-${NGXHMVER}.tar.gz &&
+                      tar xzvf nginx-haskell-module-${NGXHMVER}.tar.gz
+          fi
+          git clone https://github.com/openresty/echo-nginx-module.git
+
+          cd nginx-${NGXVER}/
+          if [ "$NGXVER" == head ]
+          then
+              NGX_CONFIGURE=./auto/configure
+          else
+              NGX_CONFIGURE=./configure
+          fi
+          $NGX_CONFIGURE --add-module=../nginx-haskell-module-${NGXHMVER} \
+                         --add-module=../echo-nginx-module \
+                         --add-dynamic-module=..
+          make -j2
+          cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
+          cd -
+
+          cabal v1-configure
+          cabal v1-build -v --ghc-options=-ddump-splices
+          cabal v2-sdist --builddir=dist
+          SRC_TGZ=$(cabal info . | awk '{print $2; exit}').tar.gz &&
+              (cd dist/sdist && cabal v1-install --force-reinstalls "$SRC_TGZ")
+
+          cd simple
+          export NGX_MODULE_PATH=../nginx-${NGXVER}/objs
+          ghc -Wall -O2 -dynamic -shared -fPIC \
+              -lHSrts_thr-ghc$(ghc --numeric-version) \
+              -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
+              ngx_healthcheck.hs -o ngx_healthcheck.so \
+              -fforce-recomp
+          cd -
+
+          cd periodic
+          export NGX_MODULE_PATH=../nginx-${NGXVER}/objs
+          ghc -Wall -O2 -dynamic -shared -fPIC \
+              -lHSrts_thr-ghc$(ghc --numeric-version) \
+              -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
+              ngx_healthcheck_periodic.hs -o ngx_healthcheck_periodic.so \
+              -fforce-recomp
+          cd -
+
+          cd prometheus
+          export NGX_MODULE_PATH=../nginx-${NGXVER}/objs
+          ghc -Wall -O2 -dynamic -shared -fPIC \
+              -lHSrts_thr-ghc$(ghc --numeric-version) \
+              -L$NGX_MODULE_PATH -lngx_healthcheck_plugin -ddump-splices \
+              ngx_healthcheck_prometheus.hs -o ngx_healthcheck_prometheus.so \
+              -fforce-recomp
+          cd -
+
+          set +e
+

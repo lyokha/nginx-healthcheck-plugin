@@ -2,7 +2,13 @@
 {-# LANGUAGE OverloadedStrings, BangPatterns, ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables, TupleSections, NumDecimals #-}
 
-module NgxExport.Healthcheck where
+module NgxExport.Healthcheck (
+    -- basic types are needed in the prometheus example
+                              Upstream
+                             ,Peer
+                             ,ServiceKey
+                             ,Peers
+                             ) where
 
 import           NgxExport
 import           Network.HTTP.Client

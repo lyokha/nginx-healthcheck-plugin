@@ -1,6 +1,8 @@
 Active health checks and monitoring of Nginx upstreams
 ======================================================
 
+[![Build Status](https://github.com/lyokha/nginx-healthcheck-plugin/workflows/CI/badge.svg)](https://github.com/lyokha/nginx-healthcheck-plugin/actions?query=workflow%3ACI)
+
 **Disclaimer**: this is not an Nginx module in the traditional sense! It
 compiles to a shared library that gets loaded in Nginx using directive
 `haskell load` from Nginx module

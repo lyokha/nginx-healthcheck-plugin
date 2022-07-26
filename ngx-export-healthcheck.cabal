@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.3
+version:               1.4
 synopsis:              Active health check and monitor for Nginx backends
 description:           Active health check and monitor for Nginx backends
 author:                Alexey Radkov <alexey.radkov@gmail.com>
