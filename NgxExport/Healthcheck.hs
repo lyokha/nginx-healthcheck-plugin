@@ -3,11 +3,11 @@
 {-# LANGUAGE ScopedTypeVariables, TupleSections, NumDecimals #-}
 
 module NgxExport.Healthcheck (
-    -- basic types are needed in the prometheus example
+    -- some basic types are needed in the prometheus example
                               Upstream
-                             ,Peer
                              ,ServiceKey
                              ,Peers
+                             ,AnnotatedPeers
                              ) where
 
 import           NgxExport
@@ -104,6 +104,8 @@ type Peers = Map Upstream [Peer]
 peers :: IORef (Map ServiceKey Peers)
 peers = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE peers #-}
+
+type AnnotatedPeers = Map Upstream [(UTCTime, Peer)]
 
 active :: IORef [ServiceKey]
 active = unsafePerformIO $ newIORef []
@@ -370,7 +372,7 @@ sendStats = const $
     <$> sendStats'
 ngxExportAsyncHandler 'sendStats
 
-sendMergedStats' :: IO (Map ServiceKey (Map Upstream [(UTCTime, Peer)]))
+sendMergedStats' :: IO (Map ServiceKey AnnotatedPeers)
 sendMergedStats' = merge <$> sendStats'
     where merge = M.foldl (ML.unionWith $ M.unionWith pickLatest) ML.empty
                   . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)

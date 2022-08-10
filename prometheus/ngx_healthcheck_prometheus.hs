@@ -19,9 +19,8 @@ import qualified Data.ByteString.Lazy.Char8 as C8L
 import qualified Data.Text.Encoding as T
 import           Data.Binary
 import           Data.Maybe
-import           Data.Time.Clock
 
-type MergedStats = ML.Map ServiceKey (Map Upstream [(UTCTime, Peer)])
+type MergedStats = ML.Map ServiceKey AnnotatedPeers
 type SharedStats = ML.Map ServiceKey Peers
 type FlatStats = Map Upstream Int
 
