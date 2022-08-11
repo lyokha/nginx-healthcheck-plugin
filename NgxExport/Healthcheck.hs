@@ -2,19 +2,28 @@
 {-# LANGUAGE OverloadedStrings, BangPatterns, ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables, TupleSections, NumDecimals #-}
 
-module NgxExport.Healthcheck (
-    -- some basic types are needed in the prometheus example
-                              Upstream
-                             ,ServiceKey
-                             ,Peers
-                             ,AnnotatedPeers
-                             ) where
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  NgxExport.Healthcheck
+-- Copyright   :  (c) Alexey Radkov 2022
+-- License     :  BSD-style
+--
+-- Maintainer  :  alexey.radkov@gmail.com
+-- Stability   :  stable
+-- Portability :  non-portable (requires Template Haskell)
+--
+-- Active health checks and monitoring of Nginx upstreams.
+--
+-----------------------------------------------------------------------------
+
+module NgxExport.Healthcheck (module Types) where
 
 import           NgxExport
+import           NgxExport.Healthcheck.Types as Types
 import           Network.HTTP.Client
 import           Network.HTTP.Client.BrReadWithTimeout
 import           Network.HTTP.Types.Status
-import           Data.Map.Strict (Map)
+import           Data.Map (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Lazy as ML
 import           Control.Monad
@@ -31,7 +40,6 @@ import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.Vector.Mutable as MV
 import qualified Data.Vector as V
-import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Maybe
@@ -61,8 +69,6 @@ import           Snap.Http.Server
 import           Snap.Core
 #endif
 
-type Upstream   = Text
-type Peer       = Text
 type Url        = String
 type HttpStatus = Int
 
@@ -93,19 +99,13 @@ data TimeInterval = Hr Int
                   | MinSec Int Int
                   deriving Read
 
-type ServiceKey = Text
-
 conf :: IORef (Map ServiceKey Conf)
 conf = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE conf #-}
 
-type Peers = Map Upstream [Peer]
-
-peers :: IORef (Map ServiceKey Peers)
+peers :: IORef (MServiceKey Peers)
 peers = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE peers #-}
-
-type AnnotatedPeers = Map Upstream [(UTCTime, Peer)]
 
 active :: IORef [ServiceKey]
 active = unsafePerformIO $ newIORef []
@@ -119,7 +119,7 @@ data StatsServerConf = StatsServerConf { ssPort          :: Int
                                        , ssPurgeInterval :: TimeInterval
                                        } deriving Read
 
-stats :: IORef (UTCTime, Map Int32 (UTCTime, ML.Map ServiceKey Peers))
+stats :: IORef (UTCTime, Map Int32 (UTCTime, MServiceKey Peers))
 stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 {-# NOINLINE stats #-}
 
@@ -179,17 +179,17 @@ byPassRule (PassRuleByHttpStatus sts)
 isActive :: ServiceKey -> IO Bool
 isActive skey = (skey `elem`) <$> readIORef active
 
-lookupServiceKey :: ServiceKey -> Map ServiceKey Peers -> Peers
+lookupServiceKey :: ServiceKey -> MServiceKey Peers -> MUpstream Peers
 lookupServiceKey = (fromMaybe M.empty .) . M.lookup
 
 throwUserError :: String -> IO a
 throwUserError = ioError . userError
 
-throwWhenPeersUninitialized :: ServiceKey -> Peers -> IO ()
+throwWhenPeersUninitialized :: ServiceKey -> MUpstream Peers -> IO ()
 throwWhenPeersUninitialized skey ps = when (M.null ps) $ throwUserError $
     "Peers were not initialized for service set " ++ T.unpack skey ++ "!"
 
-reportStats :: Int -> (Int32, ServiceKey, Peers) -> IO ()
+reportStats :: Int -> (Int32, ServiceKey, MUpstream Peers) -> IO ()
 reportStats ssp v@(_, skey, _) = do
     httpManager' <- M.lookup skey <$> readIORef httpManager
     if isJust httpManager'
@@ -362,7 +362,7 @@ receiveStats v sint = do
     return "done"
 ngxExportAsyncOnReqBody 'receiveStats
 
-sendStats' :: IO (Map Int32 (UTCTime, ML.Map ServiceKey Peers))
+sendStats' :: IO (Map Int32 (UTCTime, MServiceKey Peers))
 sendStats' = snd <$> readIORef stats
 
 sendStats :: ByteString -> IO ContentHandlerResult
@@ -372,7 +372,7 @@ sendStats = const $
     <$> sendStats'
 ngxExportAsyncHandler 'sendStats
 
-sendMergedStats' :: IO (Map ServiceKey AnnotatedPeers)
+sendMergedStats' :: IO (MServiceKey AnnotatedPeers)
 sendMergedStats' = merge <$> sendStats'
     where merge = M.foldl (ML.unionWith $ M.unionWith pickLatest) ML.empty
                   . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)

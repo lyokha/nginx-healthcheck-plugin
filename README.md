@@ -786,7 +786,6 @@ import           NgxExport.Tools.Subrequest ()
 
 import           NgxExport.Healthcheck
 
-import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Lazy as ML
 import           Data.ByteString (ByteString)
@@ -797,11 +796,11 @@ import qualified Data.Text.Encoding as T
 import           Data.Binary
 import           Data.Maybe
 
-type MergedStats = ML.Map ServiceKey AnnotatedPeers
-type SharedStats = ML.Map ServiceKey Peers
-type FlatStats = Map Upstream Int
+type MergedStats = MServiceKey AnnotatedPeers
+type SharedStats = MServiceKey Peers
+type FlatStats = MUpstream Int
 
-toFlatStats :: ML.Map ServiceKey (Map Upstream [a]) -> FlatStats
+toFlatStats :: MServiceKey a -> FlatStats
 toFlatStats = ML.foldr (flip $ M.foldrWithKey $
                            \k v -> M.alter (setN $ length v) k
                        ) M.empty
