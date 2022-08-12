@@ -7,9 +7,9 @@ module NgxExport.Healthcheck.Types (ServiceKey
                                    ,MServiceKey
                                    ) where
 
-import Data.Text (Text)
-import Data.Map (Map)
-import Data.Time.Clock (UTCTime)
+import           Data.Text (Text)
+import           Data.Map (Map)
+import           Data.Time.Clock (UTCTime)
 
 -- | Custom service key.
 type ServiceKey = Text

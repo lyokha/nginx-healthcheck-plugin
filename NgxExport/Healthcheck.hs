@@ -69,7 +69,7 @@ import           Snap.Http.Server
 import           Snap.Core
 #endif
 
-type Url        = String
+type Url = String
 type HttpStatus = Int
 
 data Conf = Conf { upstreams     :: [Upstream]
