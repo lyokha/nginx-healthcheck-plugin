@@ -2,6 +2,7 @@ Active health checks and monitoring of Nginx upstreams
 ======================================================
 
 [![Build Status](https://github.com/lyokha/nginx-healthcheck-plugin/workflows/CI/badge.svg)](https://github.com/lyokha/nginx-healthcheck-plugin/actions?query=workflow%3ACI)
+[![Hackage](https://img.shields.io/hackage/v/ngx-export-healthcheck.svg?label=hackage%20%7C%20ngx-export-healthcheck&logo=haskell&logoColor=%239580D1)](https://hackage.haskell.org/package/ngx-export-healthcheck)
 
 **Disclaimer**: this is not an Nginx module in the traditional sense! It
 compiles to a shared library that gets loaded in Nginx using directive

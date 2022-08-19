@@ -2,6 +2,10 @@ name:                  ngx-export-healthcheck
 version:               1.5
 synopsis:              Active health checks and monitor of Nginx upstreams
 description:           Active health checks and monitor of Nginx upstreams.
+        .
+        This is a part of <https://github.com/lyokha/nginx-healthcheck-plugin>.
+        Custom libraries are required to be linked against C module
+        /ngx_healthcheck_plugin/.
 homepage:              http://github.com/lyokha/nginx-healthcheck-plugin
 license:               BSD3
 license-file:          LICENSE
