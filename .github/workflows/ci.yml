@@ -13,27 +13,32 @@ jobs:
         cabal: [3.4.0.0]
         nginx: [1.18.0]
         nginx-haskell-module: [3.1.0]
+        ghc-flink-rts-opt: ['-lHSrts_thr-ghc"$(ghc --numeric-version)"']
         experimental: [false]
         include:
           - ghc: 9.2.2
             cabal: 3.6.2.0
             nginx: 1.22.0
             nginx-haskell-module: head
+            ghc-flink-rts-opt: "-flink-rts -threaded"
             experimental: false
           - ghc: 9.2.2
             cabal: 3.6.2.0
             nginx: head
             nginx-haskell-module: head
+            ghc-flink-rts-opt: "-flink-rts -threaded"
             experimental: true
           - ghc: 9.0.2
             cabal: 3.4.0.0
             nginx: 1.20.2
             nginx-haskell-module: head
+            ghc-flink-rts-opt: "-flink-rts -threaded"
             experimental: false
           - ghc: 9.0.2
             cabal: 3.4.0.0
             nginx: head
             nginx-haskell-module: head
+            ghc-flink-rts-opt: "-flink-rts -threaded"
             experimental: true
     steps:
       - name: Checkout
@@ -54,6 +59,7 @@ jobs:
           NGXVER: ${{ matrix.nginx }}
           CABALVER: ${{ matrix.cabal }}
           NGXHMVER: ${{ matrix.nginx-haskell-module }}
+          GHCFLINKRTSOPT: ${{ matrix.ghc-flink-rts-opt }}
         run: |
           set -e
 
@@ -113,8 +119,7 @@ jobs:
               (cd dist/sdist && cabal v1-install --force-reinstalls "$SRC_TGZ")
 
           cd simple
-          ghc -Wall -O2 -dynamic -shared -fPIC \
-              -lHSrts_thr-ghc$(ghc --numeric-version) \
+          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT \
               -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck.hs -o ngx_healthcheck.so \
               -fforce-recomp
@@ -122,16 +127,14 @@ jobs:
           cd -
 
           cd periodic
-          ghc -Wall -O2 -dynamic -shared -fPIC \
-              -lHSrts_thr-ghc$(ghc --numeric-version) \
+          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT \
               -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck_periodic.hs -o ngx_healthcheck_periodic.so \
               -fforce-recomp
           cd -
 
           cd prometheus
-          ghc -Wall -O2 -dynamic -shared -fPIC \
-              -lHSrts_thr-ghc$(ghc --numeric-version) \
+          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT \
               -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck_prometheus.hs -o ngx_healthcheck_prometheus.so \
               -fforce-recomp

@@ -1046,8 +1046,11 @@ The custom library must be linked against the C code.
 
 ```ShellSession
 $ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
-$ ghc -Wall -O2 -dynamic -shared -fPIC -lHSrts_thr-ghc$(ghc --numeric-version) -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
+$ ghc -Wall -O2 -dynamic -shared -fPIC -flink-rts -threaded -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
 ```
+
+Note that in ghc older than *8.10.6*, options *-flink-rts -threaded* must be
+replaced with option *-lHSrts_thr-ghc&dollar;(ghc --numeric-version)*.
 
 It's time to collect all dependent libraries, patch *custom.so* by injecting
 correct *rpath* values, and install everything. The custom library can be
