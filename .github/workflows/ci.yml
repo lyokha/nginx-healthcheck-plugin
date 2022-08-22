@@ -118,8 +118,10 @@ jobs:
           SRC_TGZ=$(cabal info . | awk '{print $2; exit}').tar.gz &&
               (cd dist/sdist && cabal v1-install --force-reinstalls "$SRC_TGZ")
 
+          GHCFLINKRTSOPT_VAL="$(eval echo $GHCFLINKRTSOPT)"
+
           cd simple
-          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT \
+          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT_VAL \
               -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck.hs -o ngx_healthcheck.so \
               -fforce-recomp
@@ -127,14 +129,14 @@ jobs:
           cd -
 
           cd periodic
-          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT \
+          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT_VAL \
               -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck_periodic.hs -o ngx_healthcheck_periodic.so \
               -fforce-recomp
           cd -
 
           cd prometheus
-          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT \
+          ghc -Wall -O2 -dynamic -shared -fPIC $GHCFLINKRTSOPT_VAL \
               -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
               ngx_healthcheck_prometheus.hs -o ngx_healthcheck_prometheus.so \
               -fforce-recomp
