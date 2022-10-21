@@ -1,0 +1,13 @@
+*.hi
+*.o
+*.so
+*_stub.h
+.ghc.environment.*
+
+/dist/
+/dist-newstyle/
+/test/t/servroot/
+.hslibs/
+
+tags
+
