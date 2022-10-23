@@ -9,5 +9,6 @@
 /test/t/servroot/
 .hslibs/
 
+/compile_flags.txt
 tags
 
