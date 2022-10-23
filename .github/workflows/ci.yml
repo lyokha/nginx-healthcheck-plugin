@@ -15,6 +15,16 @@ jobs:
         nginx-haskell-module: [3.1.0]
         experimental: [false]
         include:
+          - ghc: 9.4.1
+            cabal: 3.8.1.0
+            nginx: 1.22.0
+            nginx-haskell-module: head
+            experimental: false
+          - ghc: 9.4.1
+            cabal: 3.8.1.0
+            nginx: head
+            nginx-haskell-module: head
+            experimental: true
           - ghc: 9.2.2
             cabal: 3.6.2.0
             nginx: 1.22.0
@@ -37,9 +47,9 @@ jobs:
             experimental: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install GHC and Cabal
-        uses: haskell/actions/setup@v1
+        uses: haskell/actions/setup@v2
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}

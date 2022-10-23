@@ -1,6 +1,12 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
+#define NGX_HEALTHCHECK_UPSTREAM_NO_SHM_ZONE(u)  ((u)->shm_zone == NULL)
+#else
+#define NGX_HEALTHCHECK_UPSTREAM_NO_SHM_ZONE(u)  1
+#endif
+
 typedef struct {
     ngx_str_node_t  sn;
     ngx_str_t       data;
@@ -98,19 +104,12 @@ plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle, void *umcf_data,
         goto unlock_and_return;
     }
 
-    if (!active) {
-#if (NGX_HTTP_UPSTREAM_ZONE)
-        if (u->shm_zone == NULL) {
-#endif
-            ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
-                          "Upstream \"%V\" is not in shm zone, "
-                          "consider using a normal per-worker service "
-                          "for managing it!", &uname);
-            rc = NGX_ERROR;
-            goto unlock_and_return;
-#if (NGX_HTTP_UPSTREAM_ZONE)
-        }
-#endif
+    if (!active && NGX_HEALTHCHECK_UPSTREAM_NO_SHM_ZONE(u)) {
+        ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
+                      "Upstream \"%V\" is not in shm zone, consider using "
+                      "a normal per-worker service for managing it!", &uname);
+        rc = NGX_ERROR;
+        goto unlock_and_return;
     }
 
     if (peers == NULL) {
