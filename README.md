@@ -1000,7 +1000,7 @@ Corner cases
 Building and installation
 -------------------------
 
-The plugin contains Haskell and C parts, and thus it requires *ghc*, *Cabal*,
+The plugin contains Haskell and C parts, and thus, it requires *ghc*, *Cabal*,
 *gcc*, and a directory with the Nginx sources. The build tool also requires
 [*patchelf*](https://github.com/NixOS/patchelf),
 [*hslibdeps*](https://github.com/lyokha/nginx-haskell-module/blob/master/utils/README.md#utility-hslibdeps),
@@ -1034,6 +1034,7 @@ Now let's build the Haskell code. For this, go to one of the directories with
 Haskell handlers: *simple/*, *periodic/*, or *prometheus/*.
 
 ```ShellSession
+$ cd -
 $ cd simple
 ```
 
@@ -1064,10 +1065,9 @@ $ sudo make install
 
 if installation directory is */var/lib/nginx/*.
 
-In ghc older than *8.10.6*, build with
+With ghc older than *8.10.6*, build with
 
 ```ShellSession
 $ make LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)
-$ sudo make install
 ```
 
