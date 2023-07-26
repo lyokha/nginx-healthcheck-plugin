@@ -1000,21 +1000,14 @@ Corner cases
 Building and installation
 -------------------------
 
-The plugin contains Haskell and C parts, and thus it requires *ghc*, *cabal*,
-*gcc*, and a directory with the Nginx sources.
+The plugin contains Haskell and C parts, and thus it requires *ghc*, *Cabal*,
+*gcc*, and a directory with the Nginx sources. The build tool also requires
+[*patchelf*](https://github.com/NixOS/patchelf),
+[*hslibdeps*](https://github.com/lyokha/nginx-haskell-module/blob/master/utils/README.md#utility-hslibdeps),
+and [*cabal-plan*](https://hackage.haskell.org/package/cabal-plan).
 
-To install module *NgxExport.Healthcheck*, run
-
-```ShellSession
-$ cabal v1-install
-```
-
-You may prefer the *new-style* cabal command *v2-install*. To disable building
-the Snap monitoring server, add option *-f -snapstatsserver* to the command.
-Notice that cabal skips building Snap automatically if the dependency check
-fails. To enforce building Snap, use option *-f snapstatsserver*.
-
-Then go to the directory with the Nginx source code,
+Let's first install the Nginx module. For this, go to the directory with the
+Nginx source code,
 
 ```ShellSession
 $ cd /path/to/nginx/sources
@@ -1027,58 +1020,54 @@ $ ./configure --add-dynamic-module=/path/to/nginx-healthcheck-plugin/sources
 $ make modules
 ```
 
-and install *ngx_healthcheck_plugin.so* being a superuser.
+and install *ngx_healthcheck_plugin.so*.
 
 ```ShellSession
-# cp objs/ngx_healthcheck_plugin.so /var/lib/nginx/hslibs/libngx_healthcheck_plugin.so
+$ export NGX_HS_INSTALL_DIR=/var/lib/nginx
+$ sudo install -d $NGX_HS_INSTALL_DIR
+$ sudo cp objs/ngx_healthcheck_plugin.so $NGX_HS_INSTALL_DIR/libngx_healthcheck_plugin.so
 ```
 
 Notice that we added prefix *lib* to the module's name!
 
-When building a custom library (such as *ngx_healthcheck.hs*), import the
-Haskell module.
-
-```haskell
-import NgxExport.Healthcheck ()
-```
-
-The custom library must be linked against the C code.
+Now let's build the Haskell code. For this, go to one of the directories with
+Haskell handlers: *simple/*, *periodic/*, or *prometheus/*.
 
 ```ShellSession
-$ export NGX_MODULE_PATH=/var/lib/nginx/hslibs
-$ ghc -Wall -O2 -dynamic -shared -fPIC -flink-rts -threaded -L$NGX_MODULE_PATH -lngx_healthcheck_plugin custom.hs -o custom.so -fforce-recomp
+$ cd simple
 ```
 
-Note that in ghc older than *8.10.6*, options *-flink-rts -threaded* must be
-replaced with option *-lHSrts_thr-ghc&dollar;(ghc --numeric-version)*.
+Before running *make*, tune the *constraints* stanza in *cabal.project*.
+Currently, it should look similar to
 
-It's time to collect all dependent libraries, patch *custom.so* by injecting
-correct *rpath* values, and install everything. The custom library can be
-patched by utility
-[*hslibdeps*](https://github.com/lyokha/nginx-haskell-module/blob/master/utils/README.md#utility-hslibdeps).
-
-```ShellSession
-$ export HSLIBS_INSTALL_DIR=/var/lib/nginx/hslibs
-$ hslibdeps -t $HSLIBS_INSTALL_DIR custom.so
+```Cabal Config
+constraints: ngx-export-healthcheck +snapstatsserver
 ```
 
-If values of *HSLIBS_INSTALL_DIR* and *NGX_MODULE_PATH* differ then the second
-path must be added too.
+This line enforces building the Snap monitoring server. To disable this,
+replace *+snapstatsserver* by *-snapstatsserver*. To let Cabal deduce whether
+to build Snap automatically, remove the constraint.
+
+Now run
 
 ```ShellSession
-$ hslibdeps -t $NGX_MODULE_PATH custom.so
+$ make PREFIX=$NGX_HS_INSTALL_DIR
+$ sudo make PREFIX=$NGX_HS_INSTALL_DIR install
 ```
 
-Copy library *custom.so* into directory */var/lib/nginx/* (this must correspond
-to the directory specified in Nginx directive *haskell load*) being a superuser.
+or simply
 
 ```ShellSession
-# cp custom.so /var/lib/nginx
+$ make
+$ sudo make install
 ```
 
-Then copy all dependent Haskell libraries into the target directory.
+if installation directory is */var/lib/nginx/*.
+
+In ghc older than *8.10.6*, build with
 
 ```ShellSession
-# cp -v .hslibs/* $HSLIBS_INSTALL_DIR
+$ make LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)
+$ sudo make install
 ```
 

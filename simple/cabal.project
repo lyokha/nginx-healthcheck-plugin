@@ -1,0 +1,6 @@
+-- note that ngx-export-healthcheck will be taken from Hackage
+packages: ngx-healthcheck.cabal
+
+-- enforce building the Snap monitoring server
+constraints: ngx-export-healthcheck +snapstatsserver
+
