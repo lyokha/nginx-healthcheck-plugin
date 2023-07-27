@@ -28,7 +28,7 @@ all: $(DISTR)
 
 $(DISTR): $(SRC)
 	cabal install --lib --only-dependencies --package-env .
-	cabal install --lib $(PKGDISTR) --package-env .
+	cabal build $(PKGDISTR)
 ifeq ($(INPLACE),1)
 	cabal build ngx-export-healthcheck
 	echo "package-db $$(pwd)/$(DISTV2DIR)/packagedb/ghc-$(GHCVER)" >> \
