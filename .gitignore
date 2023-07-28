@@ -4,8 +4,8 @@
 *_stub.h
 .ghc.environment.*
 
-/dist/
-/dist-newstyle/
+dist/
+dist-newstyle/
 /test/t/servroot/
 
 /compile_flags.txt

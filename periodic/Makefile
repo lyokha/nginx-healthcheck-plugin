@@ -47,7 +47,7 @@ endif
 
 install: $(DISTR)
 	install -d $(PREFIX)
-	tar xf $(DISTR) -C $(PREFIX) --no-same-owner --skip-old-files
+	tar xf $(DISTR) -C $(PREFIX) --no-same-owner
 	install $(PREFIX)/lib$(PLUGNAME).so $(PREFIX)/$(DEPLIBS)
 
 .PHONY: clean
