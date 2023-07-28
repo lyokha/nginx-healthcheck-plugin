@@ -19,5 +19,5 @@ library
   ghc-options:             -Wall -O2
 
   if impl(ghc >= 8.10.6)
-    ghc-options:           -flink-rts -threaded
+    ghc-options:           -threaded
 
