@@ -1071,3 +1071,7 @@ With ghc older than *8.10.6*, build with
 $ make LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)
 ```
 
+By default, package *ngx-export-healthcheck* gets installed from *Hackage*. To
+build it locally, augment stanza *packages* inside *cabal.project* according to
+the commentary attached to it.
+
