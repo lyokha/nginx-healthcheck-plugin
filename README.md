@@ -1002,9 +1002,8 @@ Building and installation
 
 The plugin contains Haskell and C parts, and thus, it requires *ghc*, *Cabal*,
 *gcc*, and a directory with the Nginx sources. The build tool also requires
-[*patchelf*](https://github.com/NixOS/patchelf),
-[*hslibdeps*](https://github.com/lyokha/nginx-haskell-module/blob/master/utils/README.md#utility-hslibdeps),
-and [*cabal-plan*](https://hackage.haskell.org/package/cabal-plan).
+[*patchelf*](https://github.com/NixOS/patchelf) and utility *nhm-tool* which is
+shipped with package *ngx-export-distribution*.
 
 Let's first install the Nginx module. For this, go to the directory with the
 Nginx source code,

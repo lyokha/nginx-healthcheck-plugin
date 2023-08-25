@@ -28,7 +28,6 @@ all: $(DISTR)
 
 $(DISTR): $(SRC)
 	cabal install --lib --only-dependencies --package-env .
-	cabal build $(PKGDISTR)
 ifeq ($(INPLACE),1)
 	cabal build ngx-export-healthcheck
 	echo "package-db $$(pwd)/$(DISTV2DIR)/packagedb/ghc-$(GHCVER)" >> \
@@ -40,7 +39,7 @@ endif
 	  --package-db=clear --package-db=global \
 	  $$(sed -n 's/^\(package-db\)\s\+/--\1=/p' $(GHCENV)) \
 	  --prefix=$(PREFIX)
-	hslibdeps -e >> $(GHCENV)
+	nhm-tool deps $(PKGNAME) >> $(GHCENV)
 	runhaskell --ghc-arg=-package=base \
 	  --ghc-arg=-package=$(PKGDISTR) Setup.hs build \
 	  --ghc-options="$(SRC) -o $(LIB) -L$(PREFIX) -l$(PLUGNAME) $(LINKRTS)"
