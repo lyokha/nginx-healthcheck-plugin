@@ -121,6 +121,7 @@ http {
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule = DefaultPassRule
                                               }
               , sendStatsPort = Just 8100
@@ -135,6 +136,7 @@ http {
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule =
                                                       PassRuleByHttpStatus
                                                       [200, 404]
@@ -187,15 +189,15 @@ complementary *service update hooks* that run a Haskell handler `updatePeers`
 every 5 (or up to 7) seconds as stated in values *interval* and *peerTimeout* in
 *constructor* *Conf*. Each service has an associated unique *key* specified
 before the *Conf* declaration: in this example keys are equal to the names of
-service variables. Besides time intervals, in constructor *Conf* a list of
+service variables. Besides time intervals in constructor *Conf*, a list of
 upstreams to check, an optional *endpoint* and an optional monitoring port where
 statistics about failed peers should be sent to are defined. Endpoints contain
-an URL on which health checks will test failed peers, and *passing rules* to
-describe in which cases failed peers must be regarded as valid again. Currently,
-only two kinds of passing rules are supported: *DefaultPassRule* (when a peer
-responds with *HTTP status 200*) and *PassRuleByHttpStatus*. Internally,
-`updatePeers` calls a C function that reads and updates Nginx data related to
-peer statuses.
+an URL on which health checks will test failed peers, transport protocol
+(*Http* or *Https*), and *passing rules* to describe in which cases failed peers
+must be regarded as valid again. Currently, only two kinds of passing rules are
+supported: *DefaultPassRule* (when a peer responds with *HTTP status 200*) and
+*PassRuleByHttpStatus*. Internally, `updatePeers` calls a C function that reads
+and updates Nginx data related to peer statuses.
 
 Do not hesitate to declare as many Haskell services as you want, because they
 are very cheap. When you have to check against a large number of upstreams, it
@@ -324,6 +326,7 @@ Henceforth I am going to skip unrelated parts of the configuration for brevity.
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule = DefaultPassRule
                                               }
               , sendStatsPort = Nothing
@@ -338,6 +341,7 @@ Henceforth I am going to skip unrelated parts of the configuration for brevity.
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule =
                                                       PassRuleByHttpStatus
                                                       [200, 404]
@@ -463,6 +467,7 @@ intact.
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule = DefaultPassRule
                                               }
               , sendStatsPort = Nothing
@@ -477,6 +482,7 @@ intact.
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule =
                                                       PassRuleByHttpStatus
                                                       [200, 404]
@@ -574,6 +580,7 @@ listening on port *8200*.
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule = DefaultPassRule
                                               }
               , sendStatsPort = Just 8200
@@ -589,6 +596,7 @@ listening on port *8200*.
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule =
                                                       PassRuleByHttpStatus
                                                       [200, 404]

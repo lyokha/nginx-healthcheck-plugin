@@ -5,7 +5,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  NgxExport.Healthcheck
--- Copyright   :  (c) Alexey Radkov 2022
+-- Copyright   :  (c) Alexey Radkov 2022-2023
 -- License     :  BSD-style
 --
 -- Maintainer  :  alexey.radkov@gmail.com
@@ -21,6 +21,7 @@ module NgxExport.Healthcheck (module Types) where
 import           NgxExport
 import           NgxExport.Healthcheck.Types as Types
 import           Network.HTTP.Client
+import           Network.HTTP.Client.TLS (newTlsManager)
 import           Network.HTTP.Client.BrReadWithTimeout
 import           Network.HTTP.Types.Status
 import           Data.Map (Map)
@@ -80,8 +81,11 @@ data Conf = Conf { upstreams     :: [Upstream]
                  } deriving Read
 
 data Endpoint = Endpoint { epUrl      :: Url
+                         , epProto    :: TransportProtocol
                          , epPassRule :: PassRule
                          } deriving Read
+
+data TransportProtocol = Http | Https deriving Read
 
 data PassRule = DefaultPassRule
               | PassRuleByHttpStatus [HttpStatus]
@@ -111,9 +115,13 @@ active :: IORef [ServiceKey]
 active = unsafePerformIO $ newIORef []
 {-# NOINLINE active #-}
 
-httpManager :: IORef (Map ServiceKey Manager)
-httpManager = unsafePerformIO $ newIORef M.empty
+httpManager :: Manager
+httpManager = unsafePerformIO $ newManager defaultManagerSettings
 {-# NOINLINE httpManager #-}
+
+httpsManager :: Manager
+httpsManager = unsafePerformIO newTlsManager
+{-# NOINLINE httpsManager #-}
 
 data StatsServerConf = StatsServerConf { ssPort          :: Int
                                        , ssPurgeInterval :: TimeInterval
@@ -141,21 +149,25 @@ toNominalDiffTime =
 #endif
     . fromIntegral . toSec
 
-getUrl :: ServiceKey -> Url -> IO HttpStatus
-getUrl skey url = do
-    httpManager' <- M.lookup skey <$> readIORef httpManager
-    if isJust httpManager'
-        then -- using httpNoBody here makes Nginx backends claim about closed
-             -- keepalive connections!
-             getResponseStatus url $
-                 flip httpLbsBrReadWithTimeout $ fromJust httpManager'
-        else undefined
-    where getResponseStatus u =
-            fmap (statusCode . responseStatus) . (parseRequest u >>=)
+getUrl :: TransportProtocol -> TimeInterval -> Url -> IO HttpStatus
+getUrl proto ((1e6 *) . toSec -> tmo) url = do
+    -- Note: using httpNoBody here makes Nginx backends claim about closed
+    -- keepalive connections!
+    request <- parseRequest url
+    statusCode . responseStatus <$>
+        httpLbsBrReadWithTimeout
+            (request { responseTimeout = responseTimeoutMicro tmo })
+                (man proto)
+    where man Http  = httpManager
+          man Https = httpsManager
 
-query :: ServiceKey -> Url -> Peer -> IO (Peer, HttpStatus)
-query skey url = runKleisli $ arr id &&& Kleisli (getUrl skey . flip mkAddr url)
-    where mkAddr = (("http://" ++) .) . (++) . T.unpack
+query :: Url -> TransportProtocol -> TimeInterval -> Peer ->
+    IO (Peer, HttpStatus)
+query url proto tmo p =
+    (p, ) <$> getUrl proto tmo (mkAddr p url)
+    where mkAddr = ((fromProto proto ++) .) . (++) . T.unpack
+          fromProto Http  = "http://"
+          fromProto Https = "https://"
 
 catchBadResponse :: Peer -> IO (Peer, HttpStatus) -> IO (Peer, HttpStatus)
 catchBadResponse p = handle $ \(_ :: SomeException) -> return (p, 0)
@@ -190,17 +202,14 @@ throwWhenPeersUninitialized skey ps = when (M.null ps) $ throwUserError $
     "Peers were not initialized for service set " ++ T.unpack skey ++ "!"
 
 reportStats :: Int -> (Int32, ServiceKey, MUpstream Peers) -> IO ()
-reportStats ssp v@(_, skey, _) = do
-    httpManager' <- M.lookup skey <$> readIORef httpManager
-    if isJust httpManager'
-        then handle (\(_ :: SomeException) -> return ()) $ do
-            req <- parseRequest "POST http://127.0.0.1"
-            let !req' = req { requestBody = RequestBodyLBS $ encode v
-                            , port = ssp
-                            , Network.HTTP.Client.path = "report"
-                            }
-            void $ httpNoBody req' $ fromJust httpManager'
-        else undefined
+reportStats ssp v = do
+    handle (\(_ :: SomeException) -> return ()) $ do
+        req <- parseRequest "POST http://127.0.0.1"
+        let !req' = req { requestBody = RequestBodyLBS $ encode v
+                        , port = ssp
+                        , Network.HTTP.Client.path = "report"
+                        }
+        void $ httpNoBody req' httpManager
 
 checkPeers :: ByteString -> Bool -> IO L.ByteString
 checkPeers cf fstRun = do
@@ -217,26 +226,16 @@ checkPeers cf fstRun = do
               ) return . M.lookup skey'
     let !us  = upstreams cf''
         ep   = endpoint cf''
-        int  = toSec $ interval cf''
-        pto  = toSec $ peerTimeout cf''
+        int  = interval cf''
+        pto  = peerTimeout cf''
         !ssp = sendStatsPort cf''
     if fstRun
         then do
             peers' <- lookupServiceKey skey' <$> readIORef peers
             let peers'' = foldr (flip (M.insertWith $ const id) []) peers' us
             atomicModifyIORef' peers $ (, ()) . M.insert skey' peers''
-            readIORef httpManager >>=
-                maybe (atomicModifyIORef' httpManager $
-                          (, ()) . M.insert skey'
-                                   (unsafePerformIO $
-                                       newManager defaultManagerSettings
-                                       { managerResponseTimeout =
-                                           responseTimeoutMicro $ pto * 1e6
-                                       }
-                                   )
-                      ) (void . return) . M.lookup skey'
             atomicModifyIORef' active $ (, ()) . (skey' :)
-        else threadDelaySec int
+        else threadDelaySec $ toSec int
     peers' <- lookupServiceKey skey' <$> readIORef peers
     throwWhenPeersUninitialized skey' peers'
     when (isJust ssp) $ do
@@ -246,14 +245,15 @@ checkPeers cf fstRun = do
     let concatResult = L.fromStrict . B.concat
     if isJust ep
         then do
-            let ep'  = fromJust ep
-                url  = epUrl ep'
-                rule = epPassRule ep'
+            let ep'   = fromJust ep
+                url   = epUrl ep'
+                proto = epProto ep'
+                rule  = epPassRule ep'
             (map (flip B.append "\0\n" . T.encodeUtf8) -> peers'') <-
                 forConcurrently us $ \u -> do
                     let !ps = fromJust $ M.lookup u peers'
                     ps' <- forConcurrently ps $ \p ->
-                        catchBadResponse p $ query skey' url p
+                        catchBadResponse p $ query url proto pto p
                     let (psGood, psBad) = both (map fst) $
                             partition (byPassRule rule
                                       . (\st -> defaultPassRuleParams

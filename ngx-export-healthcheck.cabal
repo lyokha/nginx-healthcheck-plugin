@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.5
+version:               1.6
 synopsis:              Active health checks and monitoring of Nginx upstreams
 description:           Active health checks and monitoring of Nginx upstreams.
         .
@@ -13,7 +13,7 @@ extra-source-files:    Changelog.md
 author:                Alexey Radkov <alexey.radkov@gmail.com>
 maintainer:            Alexey Radkov <alexey.radkov@gmail.com>
 stability:             stable
-copyright:             2022 Alexey Radkov
+copyright:             2022-2023 Alexey Radkov
 category:              Network
 build-type:            Simple
 cabal-version:         1.20
@@ -26,6 +26,7 @@ library
   build-depends:       base >=4.8 && <5
                      , ngx-export >= 1.7.1
                      , http-client
+                     , http-client-tls >= 0.3.4
                      , http-client-brread-timeout
                      , http-types
                      , containers

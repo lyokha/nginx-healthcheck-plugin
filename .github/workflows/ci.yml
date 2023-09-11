@@ -25,12 +25,12 @@ jobs:
             nginx: head
             nginx-haskell-module: head
             experimental: true
-          - ghc: 9.4.5
+          - ghc: 9.4.6
             cabal: 3.8.1.0
             nginx: 1.22.0
             nginx-haskell-module: head
             experimental: false
-          - ghc: 9.4.5
+          - ghc: 9.4.6
             cabal: 3.8.1.0
             nginx: head
             nginx-haskell-module: head

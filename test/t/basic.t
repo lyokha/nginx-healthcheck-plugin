@@ -40,6 +40,7 @@ __DATA__
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule = DefaultPassRule
                                               }
               , sendStatsPort = Just 8200
@@ -54,6 +55,7 @@ __DATA__
               , interval      = Sec 5
               , peerTimeout   = Sec 2
               , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Http
                                               , epPassRule =
                                                       PassRuleByHttpStatus
                                                       [200, 404]
