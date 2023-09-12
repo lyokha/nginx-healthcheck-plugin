@@ -116,12 +116,8 @@ active = unsafePerformIO $ newIORef []
 {-# NOINLINE active #-}
 
 httpManager :: Manager
-httpManager = unsafePerformIO $ newManager defaultManagerSettings
+httpManager = unsafePerformIO newTlsManager
 {-# NOINLINE httpManager #-}
-
-httpsManager :: Manager
-httpsManager = unsafePerformIO newTlsManager
-{-# NOINLINE httpsManager #-}
 
 data StatsServerConf = StatsServerConf { ssPort          :: Int
                                        , ssPurgeInterval :: TimeInterval
@@ -149,22 +145,20 @@ toNominalDiffTime =
 #endif
     . fromIntegral . toSec
 
-getUrl :: TransportProtocol -> TimeInterval -> Url -> IO HttpStatus
-getUrl proto ((1e6 *) . toSec -> tmo) url = do
+getUrl :: TimeInterval -> Url -> IO HttpStatus
+getUrl ((1e6 *) . toSec -> tmo) url = do
     -- Note: using httpNoBody here makes Nginx backends claim about closed
     -- keepalive connections!
     request <- parseRequest url
     statusCode . responseStatus <$>
         httpLbsBrReadWithTimeout
             (request { responseTimeout = responseTimeoutMicro tmo })
-                (man proto)
-    where man Http  = httpManager
-          man Https = httpsManager
+                httpManager
 
 query :: Url -> TransportProtocol -> TimeInterval -> Peer ->
     IO (Peer, HttpStatus)
 query url proto tmo p =
-    (p, ) <$> getUrl proto tmo (mkAddr p url)
+    (p, ) <$> getUrl tmo (mkAddr p url)
     where mkAddr = ((fromProto proto ++) .) . (++) . T.unpack
           fromProto Http  = "http://"
           fromProto Https = "https://"

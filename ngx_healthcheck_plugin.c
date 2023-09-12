@@ -300,7 +300,7 @@ plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle, time_t now,
     if (good) {
         peer->fails = 0;
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
-                      "Peer \"%V\" has been repaired and no longer watched",
+                      "Peer \"%V\" has been recovered and no longer watched",
                       &peer->name);
     }
     peer->checked = now;
