@@ -145,9 +145,9 @@ toNominalDiffTime =
 #endif
     . fromIntegral . toSec
 
-getUrl :: TimeInterval -> Url -> IO HttpStatus
-getUrl ((1e6 *) . toSec -> tmo) url = do
-    -- Note: using httpNoBody here makes Nginx backends claim about closed
+getUrl :: Url -> TimeInterval -> IO HttpStatus
+getUrl url ((1e6 *) . toSec -> tmo) = do
+    -- Note: using here httpNoBody makes Nginx backends claim about closed
     -- keepalive connections!
     request <- parseRequest url
     statusCode . responseStatus <$>
@@ -158,7 +158,7 @@ getUrl ((1e6 *) . toSec -> tmo) url = do
 query :: Url -> TransportProtocol -> TimeInterval -> Peer ->
     IO (Peer, HttpStatus)
 query url proto tmo p =
-    (p, ) <$> getUrl tmo (mkAddr p url)
+    (p, ) <$> getUrl (mkAddr p url) tmo
     where mkAddr = ((fromProto proto ++) .) . (++) . T.unpack
           fromProto Http  = "http://"
           fromProto Https = "https://"

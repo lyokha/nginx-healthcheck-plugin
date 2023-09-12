@@ -7,6 +7,7 @@
   and [*ngx-export-distribution*](https://hackage.haskell.org/package/ngx-export-distribution),
   see details in the project's *simple/*, *periodic/*, and *prometheus/*
   subdirectories.
+- Improvement: using a single http manager for all service keys.
 
 ### 1.5
 
