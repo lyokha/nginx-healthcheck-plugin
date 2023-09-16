@@ -98,7 +98,7 @@ jobs:
                          --add-module=../echo-nginx-module \
                          --add-dynamic-module=..
           make -j2
-          cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
+          cp objs/ngx_healthcheck_plugin.so ../libngx_healthcheck_plugin.so
           export PATH="$(pwd)/objs:$PATH"
           cd -
 
@@ -110,6 +110,7 @@ jobs:
 
           cd simple
           export TEST_NGINX_HCLIB_DIR="$(pwd)"
+          cp ../libngx_healthcheck_plugin.so .
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
           cat cabal.project
@@ -118,16 +119,18 @@ jobs:
           cd -
 
           cd periodic
+          cp ../libngx_healthcheck_plugin.so .
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR"
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1
           sudo make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
           cd prometheus
+          cp ../libngx_healthcheck_plugin.so .
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR"
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1
           sudo make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
