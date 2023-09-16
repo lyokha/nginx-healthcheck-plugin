@@ -12,7 +12,7 @@ jobs:
         ghc: [8.8.4, 8.10.7]
         cabal: [3.6.2.0]
         nginx: [1.18.0]
-        nginx-haskell-module: [3.1.0]
+        nginx-haskell-module: [3.2.1]
         experimental: [true]
         include:
           - ghc: 9.6.2
@@ -101,6 +101,8 @@ jobs:
           cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
           export PATH="$(pwd)/objs:$PATH"
           cd -
+
+          cabal build
 
           install -d "$(pwd)/ngx-export-distribution/bin"
           cd ngx-export-distribution
