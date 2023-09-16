@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         ghc: [8.6.5, 8.8.4, 8.10.7]
-        cabal: [3.4.0.0]
+        cabal: [3.6.2.0]
         nginx: [1.18.0]
         nginx-haskell-module: [3.1.0]
         experimental: [false]
@@ -46,12 +46,12 @@ jobs:
             nginx-haskell-module: head
             experimental: true
           - ghc: 9.0.2
-            cabal: 3.4.0.0
+            cabal: 3.6.2.0
             nginx: 1.20.2
             nginx-haskell-module: head
             experimental: false
           - ghc: 9.0.2
-            cabal: 3.4.0.0
+            cabal: 3.6.2.0
             nginx: head
             nginx-haskell-module: head
             experimental: true
@@ -114,8 +114,12 @@ jobs:
                          --add-dynamic-module=..
           make -j2
           cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
-          export PATH="$NGX_MODULE_PATH:$PATH"
+          export PATH="$(pwd)/objs:$PATH"
           cd -
+
+          install -d "$(pwd)/bin"
+          cabal install ngx-export-distribution --installdir="$(pwd)/bin"
+          export PATH="$(pwd)/bin:$PATH"
 
           cd simple
           export TEST_NGINX_HCLIB_DIR="$(pwd)"
