@@ -102,8 +102,6 @@ jobs:
           export PATH="$(pwd)/objs:$PATH"
           cd -
 
-          cabal build
-
           install -d "$(pwd)/ngx-export-distribution/bin"
           cd ngx-export-distribution
           cabal install ngx-export-distribution --installdir="$(pwd)/bin"
@@ -112,18 +110,24 @@ jobs:
 
           cd simple
           export TEST_NGINX_HCLIB_DIR="$(pwd)"
+          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+              cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR"
           make
           sudo make install
           cd -
 
           cd periodic
+          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+              cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR"
           make
           sudo make install
           cd -
 
           cd prometheus
+          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+              cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR"
           make
           sudo make install

@@ -27,9 +27,10 @@ INPLACE := $(shell grep '^packages:.*\.\./ngx-export-healthcheck' \
 all: $(DISTR)
 
 $(DISTR): $(SRC)
-	cabal install --lib --only-dependencies --package-env .
+	cabal install --builddir="$(DISTV2DIR)" --lib --only-dependencies \
+	  --package-env .
 ifeq ($(INPLACE),1)
-	cabal build ngx-export-healthcheck
+	cabal build --builddir="$(DISTV2DIR)" ngx-export-healthcheck
 	echo "package-db $$(pwd)/$(DISTV2DIR)/packagedb/ghc-$(GHCVER)" >> \
 	  $(GHCENV)
 endif
