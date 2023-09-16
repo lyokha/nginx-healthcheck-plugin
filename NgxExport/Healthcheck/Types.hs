@@ -1,8 +1,11 @@
 module NgxExport.Healthcheck.Types (ServiceKey
                                    ,Upstream
+                                   ,PeerName
+                                   ,PeerHostName
                                    ,Peer
                                    ,Peers
-                                   ,AnnotatedPeers
+                                   ,FlatPeers
+                                   ,AnnotatedFlatPeers
                                    ,MUpstream
                                    ,MServiceKey
                                    ) where
@@ -15,13 +18,19 @@ import           Data.Time.Clock (UTCTime)
 type ServiceKey = Text
 -- | Upstream name.
 type Upstream = Text
+-- | Peer name (actually, IP address of the peer).
+type PeerName = Text
+-- | Peer host name (normally, FQDN).
+type PeerHostName = Text
 -- | Peer identifier.
-type Peer = Text
+type Peer = (PeerName, PeerHostName)
 
 -- | List of peers.
 type Peers = [Peer]
--- | List of peers annotated by timestamps.
-type AnnotatedPeers = [(UTCTime, Peer)]
+-- | List of peers without host names.
+type FlatPeers = [PeerName]
+-- | List of peers without host names annotated by timestamps.
+type AnnotatedFlatPeers = [(UTCTime, PeerName)]
 
 -- | Map over 'Upstream' keys.
 type MUpstream a = Map Upstream a

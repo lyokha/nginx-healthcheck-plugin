@@ -32,6 +32,7 @@ Table of contents
 - [Collecting Prometheus metrics](#collecting-prometheus-metrics)
     + [Normal upstreams, related changes](#normal-upstreams-related-changes)
     + [Shared upstreams, related changes](#shared-upstreams-related-changes)
+- [Secure connection to endpoints via https](#secure-connection-to-endpoints-via-https)
 - [Corner cases](#corner-cases)
 - [Building and installation](#building-and-installation)
 
@@ -193,11 +194,11 @@ service variables. Besides time intervals in constructor *Conf*, a list of
 upstreams to check, an optional *endpoint* and an optional monitoring port where
 statistics about failed peers should be sent to are defined. Endpoints contain
 an URL on which health checks will test failed peers, transport protocol
-(*Http* or *Https*), and *passing rules* to describe in which cases failed peers
-must be regarded as valid again. Currently, only two kinds of passing rules are
-supported: *DefaultPassRule* (when a peer responds with *HTTP status 200*) and
-*PassRuleByHttpStatus*. Internally, `updatePeers` calls a C function that reads
-and updates Nginx data related to peer statuses.
+(*Http* or *Https name*), and *passing rules* to describe in which cases failed
+peers must be regarded as valid again. Currently, only two kinds of passing
+rules are supported: *DefaultPassRule* (when a peer responds with *HTTP status
+200*) and *PassRuleByHttpStatus*. Internally, `updatePeers` calls a C function
+that reads and updates Nginx data related to peer statuses.
 
 Do not hesitate to declare as many Haskell services as you want, because they
 are very cheap. When you have to check against a large number of upstreams, it
@@ -805,8 +806,8 @@ import qualified Data.Text.Encoding as T
 import           Data.Binary
 import           Data.Maybe
 
-type MergedStats = MServiceKey AnnotatedPeers
-type SharedStats = MServiceKey Peers
+type MergedStats = MServiceKey AnnotatedFlatPeers
+type SharedStats = MServiceKey FlatPeers
 type FlatStats = MUpstream Int
 
 toFlatStats :: MServiceKey a -> FlatStats
@@ -972,6 +973,36 @@ cnt_upstream_failure{upstream="u_backend"} 2.0
 cnt_upstream_failure{upstream="u_backend0"} 0.0
 cnt_upstream_failure{upstream="u_backend1"} 0.0
 ```
+
+Secure connection to endpoints via https
+----------------------------------------
+
+Health checks connect to endpoints by IP addresses because they check peers
+associated with IP addresses. Although they send header *Host* with the name of
+the server found in the upstream configuration before it has been resolved to
+peers, this is not enough to establish a reliable *https* connection because
+server names in Nginx upstreams are not obliged to correspond to the names used
+to verify server certificates. Therefore, endpoints configured with *https*
+require additional *server name*.
+
+```nginx
+    haskell_run_service checkPeers $hs_service_healthcheck
+        'hs_service_healthcheck
+         Conf { upstreams     = ["u_backend"]
+              , interval      = Sec 5
+              , peerTimeout   = Sec 2
+              , endpoint      = Just Endpoint { epUrl = "/healthcheck"
+                                              , epProto = Https "my-server.org"
+                                              , epPassRule = DefaultPassRule
+                                              }
+              , sendStatsPort = Just 8100
+              }
+        ';
+```
+
+Note that all servers in all upstreams listed in *upstreams* must be associated
+with server name *my-server.org*. As such, cases with multiple upstreams checked
+in a single *checkPeers* service should be rare in practice.
 
 Corner cases
 ------------

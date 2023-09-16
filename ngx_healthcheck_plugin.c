@@ -186,13 +186,15 @@ check_peers_out:
 
     for (peer = peers->peer; peer; peer = peer->next) {
         if (peer->max_fails && peer->fails >= peer->max_fails) {
-            len += peer->name.len + 1;
+            sname = peer->server.len > 0 ? peer->server : peer->name;
+            len += peer->name.len + sname.len + 2;
         }
     }
     if (backup_peers != NULL) {
         for (peer = backup_peers->peer; peer; peer = peer->next) {
             if (peer->max_fails && peer->fails >= peer->max_fails) {
-                len += peer->name.len + 1;
+                sname = peer->server.len > 0 ? peer->server : peer->name;
+                len += peer->name.len + sname.len + 2;
             }
         }
     }
@@ -202,7 +204,7 @@ check_peers_out:
     uhost = (upstream_node_t *) ngx_str_rbtree_lookup(upstreams_rbt,
                                                       &uname, hash);
 
-    if (len < 2) {
+    if (len == 0) {
         if (uhost != NULL) {
             ngx_rbtree_delete(upstreams_rbt, &uhost->sn.node);
             if (uhost->data.data != NULL) {
@@ -262,6 +264,10 @@ check_peers_out:
             }
             ngx_memcpy(p, peer->name.data, peer->name.len);
             p += peer->name.len;
+            *p++ = '|';
+            sname = peer->server.len > 0 ? peer->server : peer->name;
+            ngx_memcpy(p, sname.data, sname.len);
+            p += sname.len;
             *p++ = ',';
         }
     }
@@ -275,6 +281,10 @@ check_peers_out:
                 }
                 ngx_memcpy(p, peer->name.data, peer->name.len);
                 p += peer->name.len;
+                *p++ = '|';
+                sname = peer->server.len > 0 ? peer->server : peer->name;
+                ngx_memcpy(p, sname.data, sname.len);
+                p += sname.len;
                 *p++ = ',';
             }
         }

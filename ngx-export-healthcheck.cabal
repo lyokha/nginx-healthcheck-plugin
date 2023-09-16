@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.6
+version:               1.6.1
 synopsis:              Active health checks and monitoring of Nginx upstreams
 description:           Active health checks and monitoring of Nginx upstreams.
         .
@@ -29,6 +29,8 @@ library
                      , http-client-tls >= 0.3.4
                      , http-client-brread-timeout
                      , http-types
+                     , crypton-connection
+                     , tls >= 1.4.0
                      , containers
                      , async
                      , bytestring

@@ -21,9 +21,11 @@ module NgxExport.Healthcheck (module Types) where
 import           NgxExport
 import           NgxExport.Healthcheck.Types as Types
 import           Network.HTTP.Client
-import           Network.HTTP.Client.TLS (newTlsManager)
+import           Network.HTTP.Client.TLS
 import           Network.HTTP.Client.BrReadWithTimeout
 import           Network.HTTP.Types.Status
+import           Network.Connection
+import           Network.TLS
 import           Data.Map (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Lazy as ML
@@ -85,7 +87,7 @@ data Endpoint = Endpoint { epUrl      :: Url
                          , epPassRule :: PassRule
                          } deriving Read
 
-data TransportProtocol = Http | Https deriving Read
+data TransportProtocol = Http | Https PeerHostName deriving Read
 
 data PassRule = DefaultPassRule
               | PassRuleByHttpStatus [HttpStatus]
@@ -119,6 +121,14 @@ httpManager :: Manager
 httpManager = unsafePerformIO newTlsManager
 {-# NOINLINE httpManager #-}
 
+httpsManager :: IORef (Map ServiceKey Manager)
+httpsManager = unsafePerformIO $ newIORef M.empty
+{-# NOINLINE httpsManager #-}
+
+mkTlsManager :: HostName -> ByteString -> IO Manager
+mkTlsManager name key = newTlsManagerWith $
+    mkManagerSettings (TLSSettings $ defaultParamsClient name key) Nothing
+
 data StatsServerConf = StatsServerConf { ssPort          :: Int
                                        , ssPurgeInterval :: TimeInterval
                                        } deriving Read
@@ -145,23 +155,35 @@ toNominalDiffTime =
 #endif
     . fromIntegral . toSec
 
-getUrl :: Url -> TimeInterval -> IO HttpStatus
-getUrl url ((1e6 *) . toSec -> tmo) = do
+getUrl :: Url -> Manager -> PeerHostName -> TimeInterval -> IO HttpStatus
+getUrl url man hname ((1e6 *) . toSec -> tmo) = do
     -- Note: using here httpNoBody makes Nginx backends claim about closed
     -- keepalive connections!
     request <- parseRequest url
     statusCode . responseStatus <$>
         httpLbsBrReadWithTimeout
-            (request { responseTimeout = responseTimeoutMicro tmo })
-                httpManager
+            (request { responseTimeout = responseTimeoutMicro tmo
+                     , requestHeaders = [("Host", T.encodeUtf8 hname)]
+                     }
+            ) man
 
-query :: Url -> TransportProtocol -> TimeInterval -> Peer ->
+query :: Url -> TransportProtocol -> ServiceKey -> TimeInterval -> Peer ->
     IO (Peer, HttpStatus)
-query url proto tmo p =
-    (p, ) <$> getUrl (mkAddr p url) tmo
-    where mkAddr = ((fromProto proto ++) .) . (++) . T.unpack
-          fromProto Http  = "http://"
-          fromProto Https = "https://"
+query url proto skey tmo p@(addr, hname) = do
+    man <- getManager proto
+    (p, ) <$> getUrl (mkAddr addr url) man (getHost proto) tmo
+    where mkAddr = ((getPrefix proto ++) .) . (++) . T.unpack
+          getPrefix Http = "http://"
+          getPrefix (Https _) = "https://"
+          getHost Http = hname
+          getHost (Https name) = name
+          getManager Http = return httpManager
+          getManager (Https _) = do
+              man <- M.lookup skey <$> readIORef httpsManager
+              maybe (throwUserError $
+                        "Secure manager for service key " ++ T.unpack skey ++
+                            " was not found!"
+                    ) return man
 
 catchBadResponse :: Peer -> IO (Peer, HttpStatus) -> IO (Peer, HttpStatus)
 catchBadResponse p = handle $ \(_ :: SomeException) -> return (p, 0)
@@ -228,6 +250,15 @@ checkPeers cf fstRun = do
             peers' <- lookupServiceKey skey' <$> readIORef peers
             let peers'' = foldr (flip (M.insertWith $ const id) []) peers' us
             atomicModifyIORef' peers $ (, ()) . M.insert skey' peers''
+            when (isJust ep) $ case epProto $ fromJust ep of
+                Https name -> readIORef httpsManager >>=
+                    maybe (atomicModifyIORef' httpsManager $
+                              (, ()) . M.insert skey'
+                                       (unsafePerformIO $
+                                           mkTlsManager (T.unpack name) skey
+                                       )
+                          ) (void . return) . M.lookup skey'
+                _ -> return ()
             atomicModifyIORef' active $ (, ()) . (skey' :)
         else threadDelaySec $ toSec int
     peers' <- lookupServiceKey skey' <$> readIORef peers
@@ -239,22 +270,21 @@ checkPeers cf fstRun = do
     let concatResult = L.fromStrict . B.concat
     if isJust ep
         then do
-            let ep'   = fromJust ep
-                url   = epUrl ep'
-                proto = epProto ep'
-                rule  = epPassRule ep'
+            let ep' = fromJust ep
             (map (flip B.append "\0\n" . T.encodeUtf8) -> peers'') <-
                 forConcurrently us $ \u -> do
                     let !ps = fromJust $ M.lookup u peers'
-                    ps' <- forConcurrently ps $ \p ->
-                        catchBadResponse p $ query url proto pto p
+                    ps' <- forConcurrently ps $ \(addr, v) ->
+                        let p' = (addr, fst $ T.break (':' ==) v)
+                        in catchBadResponse p' $
+                            query (epUrl ep') (epProto ep') skey' pto p'
                     let (psGood, psBad) = both (map fst) $
-                            partition (byPassRule rule
+                            partition (byPassRule (epPassRule ep')
                                       . (\st -> defaultPassRuleParams
                                             { responseHttpStatus = st }
                                         )
                                       . snd
-                                      ) ps'
+                                      ) $ map (first fst) ps'
                         ic = T.intercalate ","
                     return $ T.concat [u, "|", ic psBad, "/", ic psGood]
             return $ concatResult ["1", skey, "\n", B.concat peers'']
@@ -298,7 +328,11 @@ updatePeers (C8.lines -> ls)
                             then do
                                 v <- peek pv
                                 (fromIntegral -> l) <- peek pl
-                                (filter (not . T.null) . T.split (== ',')
+                                (map (second (maybe T.empty snd . T.uncons)
+                                      . T.break (== '|')
+                                     )
+                                    . filter (not . T.null)
+                                    . T.split (== ',')
                                     . T.decodeUtf8 -> ps'') <-
                                     B.unsafePackCStringLen (v, l)
                                 let peers'' = fromMaybe [] $ M.lookup u peers'
@@ -356,8 +390,8 @@ receiveStats v sint = do
     return "done"
 ngxExportAsyncOnReqBody 'receiveStats
 
-sendStats' :: IO (Map Int32 (UTCTime, MServiceKey Peers))
-sendStats' = snd <$> readIORef stats
+sendStats' :: IO (Map Int32 (UTCTime, MServiceKey FlatPeers))
+sendStats' = M.map (second $ M.map $ M.map $ map fst) . snd <$> readIORef stats
 
 sendStats :: ByteString -> IO ContentHandlerResult
 sendStats = const $
@@ -366,7 +400,7 @@ sendStats = const $
     <$> sendStats'
 ngxExportAsyncHandler 'sendStats
 
-sendMergedStats' :: IO (MServiceKey AnnotatedPeers)
+sendMergedStats' :: IO (MServiceKey AnnotatedFlatPeers)
 sendMergedStats' = merge <$> sendStats'
     where merge = M.foldl (ML.unionWith $ M.unionWith pickLatest) ML.empty
                   . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)
@@ -446,7 +480,8 @@ ngxExportServiceIOYY 'statsServer
 
 reportPeers :: ByteString -> IO ContentHandlerResult
 reportPeers = const $ do
-    (M.map $ M.filter $ not . null -> peers') <- readIORef peers
+    (M.map $ M.map (map fst) . M.filter (not . null) -> peers') <-
+        readIORef peers
     return (encode peers', "application/json", 200, [])
 ngxExportAsyncHandler 'reportPeers
 
