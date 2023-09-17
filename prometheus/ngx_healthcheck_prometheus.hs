@@ -19,8 +19,8 @@ import qualified Data.Text.Encoding as T
 import           Data.Binary
 import           Data.Maybe
 
-type MergedStats = MServiceKey AnnotatedFlatPeers
-type SharedStats = MServiceKey FlatPeers
+type MergedStats = MServiceKey AnnotatedPeers
+type SharedStats = MServiceKey Peers
 type FlatStats = MUpstream Int
 
 toFlatStats :: MServiceKey [a] -> FlatStats

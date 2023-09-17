@@ -1,12 +1,7 @@
 ### 1.6.1
 
-- Refactored support for *https* transport protocol.
-  + **Breaking changes**: constructor *Https* gets a new parameter *server
-    name*, see details [*here*](https://github.com/lyokha/nginx-healthcheck-plugin#secure-connection-to-endpoints-via-https).
-- Request header *Host* now contains
-  + *in case of Http*: the name of the server from the upstream configuration
-    associated with the peer,
-  + *in case of Https*: the configured server name.
+- Extract host names from service keys and use them in header *Host* and for
+  validation of server certificates in health checks over *https*.
 
 ### 1.6
 
