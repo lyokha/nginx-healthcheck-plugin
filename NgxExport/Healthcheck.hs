@@ -111,7 +111,9 @@ conf :: IORef (Map ServiceKey Conf)
 conf = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE conf #-}
 
-peers :: IORef (MServiceKey Peers)
+type NamedPeers = (PeerHostName, Peers)
+
+peers :: IORef (MServiceKey NamedPeers)
 peers = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE peers #-}
 
@@ -207,15 +209,25 @@ byPassRule (PassRuleByHttpStatus sts)
 isActive :: ServiceKey -> IO Bool
 isActive skey = (skey `elem`) <$> readIORef active
 
-lookupServiceKey :: ServiceKey -> MServiceKey Peers -> MUpstream Peers
+lookupServiceKey :: ServiceKey -> MServiceKey a -> MUpstream a
 lookupServiceKey = (fromMaybe M.empty .) . M.lookup
+{-# SPECIALIZE INLINE lookupServiceKey ::
+    ServiceKey -> MServiceKey NamedPeers -> MUpstream NamedPeers #-}
+
+toHostName :: ServiceKey -> PeerHostName
+toHostName key = let (_, t) = T.break (== ':') key
+                 in if T.length t > 1
+                        then T.tail t
+                        else key
 
 throwUserError :: String -> IO a
 throwUserError = ioError . userError
 
-throwWhenPeersUninitialized :: ServiceKey -> MUpstream Peers -> IO ()
+throwWhenPeersUninitialized :: ServiceKey -> MUpstream a -> IO ()
 throwWhenPeersUninitialized skey ps = when (M.null ps) $ throwUserError $
     "Peers were not initialized for service set " ++ T.unpack skey ++ "!"
+{-# SPECIALIZE INLINE throwWhenPeersUninitialized ::
+    ServiceKey -> MUpstream NamedPeers -> IO () #-}
 
 reportStats :: Int -> (Int32, ServiceKey, MUpstream Peers) -> IO ()
 reportStats ssp v = do
@@ -248,15 +260,16 @@ checkPeers cf fstRun = do
     if fstRun
         then do
             peers' <- lookupServiceKey skey' <$> readIORef peers
-            let peers'' = foldr (flip (M.insertWith $ const id) []) peers' us
+            let hname = toHostName skey'
+                peers'' = foldr (flip (M.insertWith $ const id) (hname, []))
+                              peers' us
             atomicModifyIORef' peers $ (, ()) . M.insert skey' peers''
             when (isJust ep) $ case epProto $ fromJust ep of
                 Https -> readIORef httpsManager >>=
                     maybe (atomicModifyIORef' httpsManager $
                               (, ()) . M.insert skey'
                                        (unsafePerformIO $
-                                           mkTlsManager $ T.unpack $
-                                               toHostName $ T.decodeUtf8 skey
+                                           mkTlsManager $ T.unpack hname
                                        )
                           ) (void . return) . M.lookup skey'
                 _ -> return ()
@@ -267,18 +280,17 @@ checkPeers cf fstRun = do
     when (isJust ssp) $ do
         (fromIntegral -> pid) <- ngxCachedPid
         void $ async $ reportStats (fromJust ssp)
-            (pid, skey', M.filter (not . null) peers')
+            (pid, skey', M.filter (not . null) $ M.map snd peers')
     let concatResult = L.fromStrict . B.concat
     if isJust ep
         then do
             let ep' = fromJust ep
             (map (flip B.append "\0\n" . T.encodeUtf8) -> peers'') <-
                 forConcurrently us $ \u -> do
-                    let !ps = fromJust $ M.lookup u peers'
+                    let (hname, !ps) = fromJust $ M.lookup u peers'
                     ps' <- forConcurrently ps $ \p ->
                         catchBadResponse p $
-                            query (epUrl ep') (epProto ep') skey'
-                                (toHostName skey') p pto
+                            query (epUrl ep') (epProto ep') skey' hname p pto
                     let (psGood, psBad) = both (map fst) $
                             partition (byPassRule (epPassRule ep')
                                       . (\st -> defaultPassRuleParams
@@ -291,10 +303,6 @@ checkPeers cf fstRun = do
             return $ concatResult ["1", skey, "\n", B.concat peers'']
         else return $ concatResult $
             "0" : skey : "\n" : map (T.encodeUtf8 . (`T.append` "|\0\n")) us
-    where toHostName key = let (_, t) = T.break (== ':') key
-                           in if T.length t > 1
-                                  then T.tail t
-                                  else key
 ngxExportServiceIOYY 'checkPeers
 
 readFlag :: ByteString -> CUIntPtr
@@ -336,11 +344,15 @@ updatePeers (C8.lines -> ls)
                                 (filter (not . T.null) . T.split (== ',')
                                     . T.decodeUtf8 -> ps'') <-
                                     B.unsafePackCStringLen (v, l)
-                                let peers'' = fromMaybe [] $ M.lookup u peers'
+                                let (hname, peers'') =
+                                        fromMaybe (toHostName skey', []) $
+                                            M.lookup u peers'
                                 unless (null peers'' && null ps'') $
                                     atomicModifyIORef' peers $
                                         (, ()) . M.update
-                                            (Just . M.insert u ps'') skey'
+                                                 (Just
+                                                 . M.insert u (hname, ps'')
+                                                 ) skey'
                             else do
                                 usBad' <- V.unsafeFreeze usBad
                                 let idx = fromJust $
@@ -480,7 +492,7 @@ ngxExportServiceIOYY 'statsServer
 
 reportPeers :: ByteString -> IO ContentHandlerResult
 reportPeers = const $ do
-    (M.map $ M.filter $ not . null -> peers') <- readIORef peers
+    (M.map $ M.filter (not . null) . M.map snd -> peers') <- readIORef peers
     return (encode peers', "application/json", 200, [])
 ngxExportAsyncHandler 'reportPeers
 
