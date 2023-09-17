@@ -480,7 +480,7 @@ ngxExportServiceIOYY 'statsServer
 
 reportPeers :: ByteString -> IO ContentHandlerResult
 reportPeers = const $ do
-    (M.map $  M.filter $ not . null -> peers') <- readIORef peers
+    (M.map $ M.filter $ not . null -> peers') <- readIORef peers
     return (encode peers', "application/json", 200, [])
 ngxExportAsyncHandler 'reportPeers
 
