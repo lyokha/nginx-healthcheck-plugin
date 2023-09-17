@@ -1054,12 +1054,13 @@ Before running *make*, tune the *constraints* stanza in *cabal.project*.
 Currently, it should look similar to
 
 ```Cabal Config
-constraints: ngx-export-healthcheck +snapstatsserver
+constraints: ngx-export-healthcheck +snapstatsserver +healthcheckhttps
 ```
 
-This line enforces building the Snap monitoring server. To disable this,
-replace *+snapstatsserver* by *-snapstatsserver*. To let Cabal deduce whether
-to build Snap automatically, remove the constraint.
+This line enforces building the Snap monitoring server and support for secure
+connections to endpoints. To disable them, replace *+snapstatsserver* by
+*-snapstatsserver* and *+healthcheckhttps* by *-healthcheckhttps*. To let Cabal
+deduce whether to build these features automatically, remove the constraints.
 
 Now run
 

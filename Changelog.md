@@ -2,6 +2,8 @@
 
 - Extract host names from service keys and use them in header *Host* and for
   validation of server certificates in health checks over *https*.
+- Conditional building of the *https* support controlled by Cabal flag
+  *HealthcheckHttps*.
 
 ### 1.6
 

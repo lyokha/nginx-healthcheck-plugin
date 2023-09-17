@@ -21,11 +21,8 @@ module NgxExport.Healthcheck (module Types) where
 import           NgxExport
 import           NgxExport.Healthcheck.Types as Types
 import           Network.HTTP.Client
-import           Network.HTTP.Client.TLS
 import           Network.HTTP.Client.BrReadWithTimeout
 import           Network.HTTP.Types.Status
-import           Network.Connection
-import           Network.TLS
 import           Data.Map (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Lazy as ML
@@ -65,6 +62,12 @@ import           Data.Int
 import           Data.Time.Clock
 import           Data.Time.Calendar
 import           Safe
+
+#ifdef HEALTHCHECK_HTTPS
+import           Network.HTTP.Client.TLS
+import           Network.Connection
+import           Network.TLS
+#endif
 
 #ifdef SNAP_STATS_SERVER
 import           Control.Monad.IO.Class
@@ -122,8 +125,11 @@ active = unsafePerformIO $ newIORef []
 {-# NOINLINE active #-}
 
 httpManager :: Manager
-httpManager = unsafePerformIO newTlsManager
+httpManager = unsafePerformIO $ newManager defaultManagerSettings
 {-# NOINLINE httpManager #-}
+
+
+#ifdef HEALTHCHECK_HTTPS
 
 httpsManager :: IORef (Map ServiceKey Manager)
 httpsManager = unsafePerformIO $ newIORef M.empty
@@ -132,6 +138,9 @@ httpsManager = unsafePerformIO $ newIORef M.empty
 mkTlsManager :: HostName -> IO Manager
 mkTlsManager name = newTlsManagerWith $
     mkManagerSettings (TLSSettings $ defaultParamsClient name "") Nothing
+
+#endif
+
 
 data StatsServerConf = StatsServerConf { ssPort          :: Int
                                        , ssPurgeInterval :: TimeInterval
@@ -159,6 +168,9 @@ toNominalDiffTime =
 #endif
     . fromIntegral . toSec
 
+terminateWorkerProcess :: String -> IO a
+terminateWorkerProcess = throwIO . TerminateWorkerProcess
+
 getUrl :: Url -> Manager -> PeerHostName -> TimeInterval -> IO HttpStatus
 getUrl url man hname ((1e6 *) . toSec -> tmo) = do
     -- Note: using here httpNoBody makes Nginx backends claim about closed
@@ -180,12 +192,16 @@ query url proto skey hname p tmo = do
           getPrefix Http  = "http://"
           getPrefix Https = "https://"
           getManager Http  = return httpManager
-          getManager Https = do
-              man <- M.lookup skey <$> readIORef httpsManager
-              maybe (throwUserError $
-                        "Secure manager for service key " ++ T.unpack skey ++
-                            " was not found!"
-                    ) return man
+          getManager Https =
+#ifdef HEALTHCHECK_HTTPS
+              M.lookup skey <$> readIORef httpsManager >>=
+                  maybe (throwUserError $
+                            "Secure manager for service key " ++
+                                T.unpack skey ++ " was not found!"
+                        ) return
+#else
+              skey `seq` undefined
+#endif
 
 catchBadResponse :: Peer -> IO (Peer, HttpStatus) -> IO (Peer, HttpStatus)
 catchBadResponse p = handle $ \(_ :: SomeException) -> return (p, 0)
@@ -246,8 +262,8 @@ checkPeers cf fstRun = do
     cf'' <- readIORef conf >>=
         maybe (do
                   let cf'' = readMay $ C8.unpack cf'
-                  when (isNothing cf'') $ throwIO $
-                      TerminateWorkerProcess "Unreadable peers configuration!"
+                  when (isNothing cf'') $
+                      terminateWorkerProcess "Unreadable peers configuration!"
                   let cf''' = fromJust cf''
                   atomicModifyIORef' conf $ (, ()) . M.insert skey' cf'''
                   return cf'''
@@ -265,13 +281,19 @@ checkPeers cf fstRun = do
                               peers' us
             atomicModifyIORef' peers $ (, ()) . M.insert skey' peers''
             when (isJust ep) $ case epProto $ fromJust ep of
-                Https -> readIORef httpsManager >>=
-                    maybe (atomicModifyIORef' httpsManager $
-                              (, ()) . M.insert skey'
-                                       (unsafePerformIO $
-                                           mkTlsManager $ T.unpack hname
-                                       )
-                          ) (void . return) . M.lookup skey'
+                Https ->
+#ifdef HEALTHCHECK_HTTPS
+                    readIORef httpsManager >>=
+                        maybe (atomicModifyIORef' httpsManager $
+                                  (, ()) . M.insert skey'
+                                           (unsafePerformIO $
+                                               mkTlsManager $ T.unpack hname
+                                           )
+                              ) (void . return) . M.lookup skey'
+#else
+                    terminateWorkerProcess
+                        "Healthcheck plugin wasn't built with support for https"
+#endif
                 _ -> return ()
             atomicModifyIORef' active $ (, ()) . (skey' :)
         else threadDelaySec $ toSec int
@@ -477,9 +499,8 @@ statsServer :: ByteString -> Bool -> IO L.ByteString
 statsServer cf fstRun = do
     if fstRun
         then do
-            cf' <- maybe (throwIO $
-                             TerminateWorkerProcess
-                                 "Unreadable stats server configuration!"
+            cf' <- maybe (terminateWorkerProcess
+                             "Unreadable stats server configuration!"
                          ) return $ readMay $ C8.unpack cf
             let !int = toNominalDiffTime $ ssPurgeInterval cf'
             simpleHttpServe (ssConfig $ ssPort cf') $ ssHandler int
