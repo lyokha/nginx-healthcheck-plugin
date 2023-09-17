@@ -333,8 +333,7 @@ updatePeers (C8.lines -> ls)
                             then do
                                 v <- peek pv
                                 (fromIntegral -> l) <- peek pl
-                                (filter (not . T.null)
-                                    . T.split (== ',')
+                                (filter (not . T.null) . T.split (== ',')
                                     . T.decodeUtf8 -> ps'') <-
                                     B.unsafePackCStringLen (v, l)
                                 let peers'' = fromMaybe [] $ M.lookup u peers'
@@ -371,8 +370,7 @@ updateStats v int = do
             let (!tn, f) =
                     if diffUTCTime t t' >= int
                         then (t
-                             ,M.filter $
-                                 \(t'', _) -> diffUTCTime t t'' < int
+                             ,M.filter $ \(t'', _) -> diffUTCTime t t'' < int
                              )
                         else (t', id)
                 !psn = f $ M.alter
@@ -482,7 +480,7 @@ ngxExportServiceIOYY 'statsServer
 
 reportPeers :: ByteString -> IO ContentHandlerResult
 reportPeers = const $ do
-    (M.map $  M.filter (not . null) -> peers') <- readIORef peers
+    (M.map $  M.filter $ not . null -> peers') <- readIORef peers
     return (encode peers', "application/json", 200, [])
 ngxExportAsyncHandler 'reportPeers
 
