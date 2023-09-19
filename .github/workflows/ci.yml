@@ -13,13 +13,13 @@ jobs:
         cabal: [3.4.0.0]
         nginx: [1.18.0]
         nginx-haskell-module: [3.2.1]
-        experimental: [true]
+        experimental: [false]
         include:
           - ghc: 9.6.2
             cabal: 3.10.1.0
             nginx: 1.22.1
             nginx-haskell-module: head
-            experimental: true
+            experimental: false
           - ghc: 9.6.2
             cabal: 3.10.1.0
             nginx: head
@@ -29,17 +29,17 @@ jobs:
             cabal: 3.8.1.0
             nginx: 1.22.0
             nginx-haskell-module: head
-            experimental: true
+            experimental: false
           - ghc: 9.2.8
             cabal: 3.6.2.0
             nginx: 1.22.0
             nginx-haskell-module: head
-            experimental: true
+            experimental: false
           - ghc: 9.0.2
             cabal: 3.4.0.0
             nginx: 1.20.2
             nginx-haskell-module: head
-            experimental: true
+            experimental: false
     steps:
       - name: Checkout
         uses: actions/checkout@v3
