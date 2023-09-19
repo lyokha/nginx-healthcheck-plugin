@@ -112,13 +112,16 @@ jobs:
           export PATH="$(pwd)/bin:$PATH"
           cd -
 
+          echo "$GHCVER" | grep -q '^8\.' &&
+              LINKRTS="LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)"
+
           cd simple
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
           [ "$GHCVER" = 8.6.5 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
@@ -128,7 +131,7 @@ jobs:
           [ "$GHCVER" = 8.6.5 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
@@ -138,7 +141,7 @@ jobs:
           [ "$GHCVER" = 8.6.5 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 

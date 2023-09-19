@@ -13,13 +13,13 @@ jobs:
         cabal: [3.4.0.0]
         nginx: [1.18.0]
         nginx-haskell-module: [3.2.1]
-        experimental: [false]
+        experimental: [true]
         include:
           - ghc: 9.6.2
             cabal: 3.10.1.0
             nginx: 1.22.1
             nginx-haskell-module: head
-            experimental: false
+            experimental: true
           - ghc: 9.6.2
             cabal: 3.10.1.0
             nginx: head
@@ -29,17 +29,17 @@ jobs:
             cabal: 3.8.1.0
             nginx: 1.22.0
             nginx-haskell-module: head
-            experimental: false
+            experimental: true
           - ghc: 9.2.8
             cabal: 3.6.2.0
             nginx: 1.22.0
             nginx-haskell-module: head
-            experimental: false
+            experimental: true
           - ghc: 9.0.2
             cabal: 3.4.0.0
             nginx: 1.20.2
             nginx-haskell-module: head
-            experimental: false
+            experimental: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -65,17 +65,9 @@ jobs:
           cabal --version
           echo "$(ghc --version) "`
               `"[$(ghc --print-project-git-commit-id 2>/dev/null || echo '?')]"
-          if echo "$CABALVER" | grep -q '^3\.[0-5]\.'
-          then
-              cabal v1-update
-          else
-              cabal v2-update
-          fi
-          cabal v1-install --only-dependencies
-          cabal v1-install -f -ede -f -pcre -f -snapaggregateserver \
-              ngx-export-tools-extra
+          cabal update
 
-          if [ "$NGXVER" == head ]
+          if [ "$NGXVER" = head ]
           then
               git clone https://github.com/nginx/nginx.git nginx-head
           else
@@ -83,7 +75,7 @@ jobs:
                   tar xzvf nginx-${NGXVER}.tar.gz
           fi
 
-          if [ "$NGXHMVER" == head ]
+          if [ "$NGXHMVER" = head ]
           then
               git clone https://github.com/lyokha/nginx-haskell-module.git \
                   nginx-haskell-module-head
@@ -95,8 +87,11 @@ jobs:
           fi
           git clone https://github.com/openresty/echo-nginx-module.git
 
+          export TEST_NGINX_HCLIB_DIR="$(pwd)/var/lib/nginx"
+          install -d "$TEST_NGINX_HCLIB_DIR"
+
           cd nginx-${NGXVER}/
-          if [ "$NGXVER" == head ]
+          if [ "$NGXVER" = head ]
           then
               NGX_CONFIGURE=./auto/configure
           else
@@ -106,49 +101,53 @@ jobs:
                          --add-module=../echo-nginx-module \
                          --add-dynamic-module=..
           make -j2
-          cp objs/ngx_healthcheck_plugin.so objs/libngx_healthcheck_plugin.so
-          export NGX_MODULE_PATH="$(pwd)/objs"
-          export PATH="$NGX_MODULE_PATH:$PATH"
+          cp objs/ngx_healthcheck_plugin.so \
+              "$TEST_NGINX_HCLIB_DIR/libngx_healthcheck_plugin.so"
+          export PATH="$(pwd)/objs:$PATH"
           cd -
 
-          cabal v1-configure
-          cabal v1-build -v --ghc-options=-ddump-splices
-          cabal v2-sdist --builddir=dist
-          SRC_TGZ=$(cabal info . | awk '{print $2; exit}').tar.gz &&
-              (cd dist/sdist && cabal v1-install --force-reinstalls "$SRC_TGZ")
+          install -d "$(pwd)/ngx-export-distribution/bin"
+          cd ngx-export-distribution
+          cabal install ngx-export-distribution --installdir="$(pwd)/bin"
+          export PATH="$(pwd)/bin:$PATH"
+          cd -
 
-          if echo "$GHCVER" | grep -q '^[0-8]\.'
-          then
-              GHC_FLINKRTS=-lHSrts_thr-ghc"$(ghc --numeric-version)"
-          else
-              GHC_FLINKRTS="-flink-rts -threaded"
-          fi
+          echo "$GHCVER" | grep -q '^8\.' &&
+              LINKRTS="LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)"
 
           cd simple
-          ghc -Wall -O2 -dynamic -shared -fPIC $GHC_FLINKRTS \
-              -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
-              ngx_healthcheck.hs -o ngx_healthcheck.so \
-              -fforce-recomp
-          export TEST_NGINX_HCLIB_DIR="$(pwd)"
+          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+              cabal.project
+          [ "$GHCVER" = 8.6.5 ] && \
+                     sed -i 's/\(^constraints: ngx-export-healthcheck '`
+                           `'+snapstatsserver\).*/\1/' cabal.project
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
           cd periodic
-          ghc -Wall -O2 -dynamic -shared -fPIC $GHC_FLINKRTS \
-              -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
-              ngx_healthcheck_periodic.hs -o ngx_healthcheck_periodic.so \
-              -fforce-recomp
+          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+              cabal.project
+          [ "$GHCVER" = 8.6.5 ] && \
+                     sed -i 's/\(^constraints: ngx-export-healthcheck '`
+                           `'+snapstatsserver\).*/\1/' cabal.project
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
           cd prometheus
-          ghc -Wall -O2 -dynamic -shared -fPIC $GHC_FLINKRTS \
-              -L"$NGX_MODULE_PATH" -lngx_healthcheck_plugin -ddump-splices \
-              ngx_healthcheck_prometheus.hs -o ngx_healthcheck_prometheus.so \
-              -fforce-recomp
+          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+              cabal.project
+          [ "$GHCVER" = 8.6.5 ] && \
+                     sed -i 's/\(^constraints: ngx-export-healthcheck '`
+                           `'+snapstatsserver\).*/\1/' cabal.project
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
+          make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
 
           cd test
           sudo sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
-          LD_LIBRARY_PATH="$NGX_MODULE_PATH" prove -r t
+          prove -r t
           cd -
 
           set +e
