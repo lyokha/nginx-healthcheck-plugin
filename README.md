@@ -193,12 +193,13 @@ service variables. Service keys also define values of header *Host* and the host
 name for validation of server certificates used in health checks over *https*.
 The host name gets known from a service key according to the following rule:
 
-1. if the service key contains no *slashes*: the host name is equal to the
+1. *if the service key contains no slashes*: the host name is equal to the
    service key,
-2. otherwise, if the service key contains the only slash at its end: the host
-   name is taken from the name of the server (without port) bound to the peer
-   in the upstream configuration,
-3. otherwise (if the service key contains slashes on the left of its end): the
+2. *otherwise, if the service key contains the only slash at its end*: the host
+   name is taken from the name of the server (with port for header *Host*,
+   without port for the server certificate validation) bound to the peer in the
+   upstream configuration,
+3. *otherwise (if the service key contains slashes on the left of its end)*: the
    host name is equal to the part of the service key after the first slash from
    the left, for example, if a service key is equal to *1/healthcheck* then the
    host name is equal to *healthcheck*.

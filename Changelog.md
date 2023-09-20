@@ -1,8 +1,8 @@
 ### 1.6.2
 
-- *New feature*: take the host name from the corresponding server name in the
-  Nginx upstream configuration when the service key ends with a slash and this
-  is the only slash inside it.
+- *New feature*: take the host name from the bound server name in the Nginx
+  upstream configuration when the service key ends with a slash and this is the
+  only slash inside it.
   + **Breaking changes**: internal Haskell/C interoperability protocol has
     changed which requires rebuilding of the C plugin.
 
