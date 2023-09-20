@@ -191,17 +191,27 @@ every 5 (or up to 7) seconds as stated in values *interval* and *peerTimeout* in
 before the *Conf* declaration: in this example keys are equal to the names of
 service variables. Service keys also define values of header *Host* and the host
 name for validation of server certificates used in health checks over *https*.
-The host name gets extracted from a service key after an optional prefix which
-ends by a colon (for example, if a service key is equal to *1:healthcheck* then
-the host name will be equal to *healthcheck*). Besides time intervals in
-constructor *Conf*, a list of upstreams to check, an optional *endpoint* and an
-optional monitoring port where statistics about failed peers should be sent to
-are defined. Endpoints contain an URL on which health checks will test failed
-peers, transport protocol (*Http* or *Https*), and *passing rules* to describe
-in which cases failed peers must be regarded as recovered. Currently, only two
-kinds of passing rules are supported: *DefaultPassRule* (when a peer responds
-with *HTTP status 200*) and *PassRuleByHttpStatus*. Internally, `updatePeers`
-calls a C function that reads and updates Nginx data related to peer statuses.
+The host name gets known from a service key according to the following rule:
+
+1. if the service key contains no *slashes*: the host name is equal to the
+   service key,
+2. otherwise, if the service key contains the only slash at its end: the host
+   name is taken from the name of the server (without port) bound to the peer
+   in the upstream configuration,
+3. otherwise (if the service key contains slashes on the left of its end): the
+   host name is equal to the part of the service key after the first slash from
+   the left, for example, if a service key is equal to *1/healthcheck* then the
+   host name is equal to *healthcheck*.
+
+Besides time intervals in constructor *Conf*, a list of upstreams to check, an
+optional *endpoint* and an optional monitoring port where statistics about
+failed peers should be sent to are defined. Endpoints contain an URL on which
+health checks will test failed peers, transport protocol (*Http* or *Https*),
+and *passing rules* to describe in which cases failed peers must be regarded as
+recovered. Currently, only two kinds of passing rules are supported:
+*DefaultPassRule* (when a peer responds with *HTTP status 200*) and
+*PassRuleByHttpStatus*. Internally, `updatePeers` calls a C function that reads
+and updates Nginx data related to peer statuses.
 
 Do not hesitate to declare as many Haskell services as you want, because they
 are very cheap. When you have to check against a large number of upstreams, it
@@ -809,8 +819,8 @@ import qualified Data.Text.Encoding as T
 import           Data.Binary
 import           Data.Maybe
 
-type MergedStats = MServiceKey AnnotatedPeers
-type SharedStats = MServiceKey Peers
+type MergedStats = MServiceKey AnnotatedFlatPeers
+type SharedStats = MServiceKey FlatPeers
 type FlatStats = MUpstream Int
 
 toFlatStats :: MServiceKey a -> FlatStats

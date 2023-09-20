@@ -15,6 +15,8 @@ typedef struct {
 static ngx_rbtree_t       *upstreams_rbt;
 static ngx_rbtree_node_t   upstreams_snt;
 
+ngx_int_t plugin_ngx_http_haskell_healthcheck_srv(ngx_cycle_t *cycle,
+    void *umcf_data, u_char *uname_in, u_char **srv_out, size_t *srv_len);
 ngx_int_t plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle,
     void *umcf_data, volatile void *ntime_data, ngx_uint_t check_peers_in,
     ngx_uint_t active, u_char *peers_in, u_char **peers_out, size_t *peers_len);
@@ -23,6 +25,73 @@ static void plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle,
 static void wrap_ngx_str_rbtree_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel);
 static uint32_t local_ngx_crc32_long(u_char *p, size_t len);
+
+
+ngx_int_t
+plugin_ngx_http_haskell_healthcheck_srv(ngx_cycle_t *cycle, void *umcf_data,
+    u_char *uname_in, u_char **srv_out, size_t *srv_len)
+{
+    ngx_http_upstream_main_conf_t   *umcf = umcf_data;
+
+    ngx_uint_t                       i, j, len = 0;
+    ngx_http_upstream_srv_conf_t   **uscf;
+    ngx_http_upstream_server_t      *us;
+    ngx_str_t                        uname;
+
+    uname.data = uname_in;
+    uname.len = ngx_strlen(uname_in);
+
+    *srv_out = NULL;
+    *srv_len = 0;
+
+    /* BEWARE: this computation runs in a thread not known to Nginx and as such
+     *         is very fragile! Be very careful! */
+
+    uscf = umcf->upstreams.elts;
+
+    for (i = 0; i < umcf->upstreams.nelts; i++) {
+        if (uscf[i]->host.len == uname.len
+            && ngx_strncmp(uscf[i]->host.data, uname.data, uname.len) == 0)
+        {
+            if (uscf[i]->servers == NULL) {
+                ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
+                              "Upstream \"%V\" doesn't contain servers",
+                              &uname);
+                return NGX_ERROR;
+            }
+            us = uscf[i]->servers->elts;
+            for (j = 0; j < uscf[i]->servers->nelts; j++) {
+                len += us[j].name.len + 1;
+            }
+            break;
+        }
+    }
+
+    if (len == 0) {
+        ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
+                      "Cannot find upstream \"%V\"", &uname);
+        return NGX_ERROR;
+    }
+
+    *srv_out = ngx_alloc(len, cycle->log);
+
+    if (srv_out == NULL) {
+        ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
+                      "Cannot allocate memory for the upstream content");
+        return NGX_ERROR;
+    }
+
+    *srv_len = len - 1;
+    len = 0;
+
+    for (j = 0; j < uscf[i]->servers->nelts; j++) {
+        ngx_memcpy(*srv_out + len, us[j].name.data, us[j].name.len);
+        len += us[j].name.len;
+        (*srv_out)[len++] = ',';
+    }
+
+    return NGX_OK;
+}
 
 
 ngx_int_t
@@ -69,7 +138,7 @@ plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle, void *umcf_data,
 
     if (!found) {
         ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
-                      "Cannot extract upstream name from: \"%s\"", peers_in);
+                      "Cannot extract upstream name from \"%s\"", peers_in);
         return NGX_ERROR;
     }
 
@@ -99,7 +168,7 @@ plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle, void *umcf_data,
 
     if (u == NULL) {
         ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
-                      "Cannot find upstream: \"%V\"", &uname);
+                      "Cannot find upstream \"%V\"", &uname);
         rc = NGX_ERROR;
         goto unlock_and_return;
     }
@@ -114,7 +183,7 @@ plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle, void *umcf_data,
 
     if (peers == NULL) {
         ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
-                      "Cannot find peers in upstream: \"%V\"", &uname);
+                      "Cannot find peers in upstream \"%V\"", &uname);
         rc = NGX_ERROR;
         goto unlock_and_return;
     }
@@ -186,13 +255,15 @@ check_peers_out:
 
     for (peer = peers->peer; peer; peer = peer->next) {
         if (peer->max_fails && peer->fails >= peer->max_fails) {
-            len += peer->name.len + 1;
+            sname = peer->server.len > 0 ? peer->server : peer->name;
+            len += peer->name.len + sname.len + 2;
         }
     }
     if (backup_peers != NULL) {
         for (peer = backup_peers->peer; peer; peer = peer->next) {
             if (peer->max_fails && peer->fails >= peer->max_fails) {
-                len += peer->name.len + 1;
+                sname = peer->server.len > 0 ? peer->server : peer->name;
+                len += peer->name.len + sname.len + 2;
             }
         }
     }
@@ -202,7 +273,7 @@ check_peers_out:
     uhost = (upstream_node_t *) ngx_str_rbtree_lookup(upstreams_rbt,
                                                       &uname, hash);
 
-    if (len < 2) {
+    if (len == 0) {
         if (uhost != NULL) {
             ngx_rbtree_delete(upstreams_rbt, &uhost->sn.node);
             if (uhost->data.data != NULL) {
@@ -262,6 +333,10 @@ check_peers_out:
             }
             ngx_memcpy(p, peer->name.data, peer->name.len);
             p += peer->name.len;
+            *p++ = '/';
+            sname = peer->server.len > 0 ? peer->server : peer->name;
+            ngx_memcpy(p, sname.data, sname.len);
+            p += sname.len;
             *p++ = ',';
         }
     }
@@ -275,6 +350,10 @@ check_peers_out:
                 }
                 ngx_memcpy(p, peer->name.data, peer->name.len);
                 p += peer->name.len;
+                *p++ = '/';
+                sname = peer->server.len > 0 ? peer->server : peer->name;
+                ngx_memcpy(p, sname.data, sname.len);
+                p += sname.len;
                 *p++ = ',';
             }
         }

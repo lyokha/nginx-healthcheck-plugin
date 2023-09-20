@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.6.1
+version:               1.6.2
 synopsis:              Active health checks and monitoring of Nginx upstreams
 description:           Active health checks and monitoring of Nginx upstreams.
         .
@@ -49,6 +49,7 @@ library
 
   if flag(HealthcheckHttps)
     build-depends:     http-client-tls >= 0.3.4
+                     , unordered-containers
                      , crypton-connection
                      , tls >= 1.4.0
     cpp-options:      -DHEALTHCHECK_HTTPS

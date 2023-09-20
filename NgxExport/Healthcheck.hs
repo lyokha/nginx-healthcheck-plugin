@@ -40,7 +40,6 @@ import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.Vector.Mutable as MV
 import qualified Data.Vector as V
-import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Maybe
@@ -64,6 +63,8 @@ import           Data.Time.Calendar
 import           Safe
 
 #ifdef HEALTHCHECK_HTTPS
+import           Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
 import           Network.HTTP.Client.TLS
 import           Network.Connection
 import           Network.TLS
@@ -78,7 +79,6 @@ import           Snap.Core
 
 type Url = String
 type HttpStatus = Int
-type PeerHostName = Text
 
 data Conf = Conf { upstreams     :: [Upstream]
                  , interval      :: TimeInterval
@@ -110,11 +110,14 @@ data TimeInterval = Hr Int
                   | MinSec Int Int
                   deriving Read
 
+terminateWorkerProcess :: String -> IO a
+terminateWorkerProcess = throwIO . TerminateWorkerProcess
+
 conf :: IORef (Map ServiceKey Conf)
 conf = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE conf #-}
 
-type NamedPeers = (PeerHostName, Peers)
+type NamedPeers = (Maybe PeerHostName, Peers)
 
 peers :: IORef (MServiceKey NamedPeers)
 peers = unsafePerformIO $ newIORef M.empty
@@ -131,13 +134,51 @@ httpManager = unsafePerformIO $ newManager defaultManagerSettings
 
 #ifdef HEALTHCHECK_HTTPS
 
-httpsManager :: IORef (Map ServiceKey Manager)
-httpsManager = unsafePerformIO $ newIORef M.empty
+httpsManager :: IORef (HashMap PeerHostName Manager)
+httpsManager = unsafePerformIO $ newIORef HM.empty
 {-# NOINLINE httpsManager #-}
 
-mkTlsManager :: HostName -> IO Manager
-mkTlsManager name = newTlsManagerWith $
-    mkManagerSettings (TLSSettings $ defaultParamsClient name "") Nothing
+foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck_srv"
+    c_healthcheck_srv :: Ptr () -> Ptr () -> CString -> Ptr CString ->
+                         Ptr CSize -> IO CIntPtr
+
+mkHttpsManager :: [Upstream] -> Maybe PeerHostName -> IO ()
+mkHttpsManager us hname = do
+    hnames <-
+        case hname of
+            Nothing -> concat <$> mapM
+                (\ps -> do
+                    c   <- ngxCyclePtr
+                    umc <- ngxUpstreamMainConfPtr
+                    B.useAsCString (T.encodeUtf8 ps) $ \ps' ->
+                        alloca $ \pv ->
+                            alloca $ \pl -> do
+                                ((0 ==) -> !ok) <-
+                                    c_healthcheck_srv c umc ps' pv pl
+                                if ok
+                                    then do
+                                        v <- peek pv
+                                        (fromIntegral -> l) <- peek pl
+                                        v' <- B.unsafePackCStringLen (v, l)
+                                        free pv
+                                        return $ filter (not . T.null)
+                                               $ map (T.takeWhile (/= ':'))
+                                               $ T.split (== ',')
+                                               $ T.decodeUtf8 v'
+                                    else terminateWorkerProcess $
+                                        "Failed to get servers in upstream " ++
+                                            T.unpack ps ++ "!"
+                ) us
+            Just v -> return [v]
+    atomicModifyIORef' httpsManager $ (, ())
+        . (`HM.union` (HM.fromList $
+                           map (id &&& unsafePerformIO . mkManager . T.unpack)
+                               hnames
+                     )
+          )
+    where mkManager name = newTlsManagerWith $
+              mkManagerSettings (TLSSettings $ defaultParamsClient name "")
+                  Nothing
 
 #endif
 
@@ -168,9 +209,6 @@ toNominalDiffTime =
 #endif
     . fromIntegral . toSec
 
-terminateWorkerProcess :: String -> IO a
-terminateWorkerProcess = throwIO . TerminateWorkerProcess
-
 getUrl :: Url -> Manager -> PeerHostName -> TimeInterval -> IO HttpStatus
 getUrl url man hname ((1e6 *) . toSec -> tmo) = do
     -- Note: using here httpNoBody makes Nginx backends claim about closed
@@ -183,24 +221,25 @@ getUrl url man hname ((1e6 *) . toSec -> tmo) = do
                      }
             ) man
 
-query :: Url -> TransportProtocol -> ServiceKey -> PeerHostName -> Peer ->
+query :: Url -> TransportProtocol -> Maybe PeerHostName -> Peer ->
     TimeInterval -> IO (Peer, HttpStatus)
-query url proto skey hname p tmo = do
-    man <- getManager proto
-    (p, ) <$> getUrl (mkAddr p url) man hname tmo
+query url proto hname p@(addr, hname') tmo = do
+    let name = fromMaybe hname' hname
+    man <- getManager proto name
+    (p, ) <$> getUrl (mkAddr addr url) man name tmo
     where mkAddr = ((getPrefix proto ++) .) . (++) . T.unpack
           getPrefix Http  = "http://"
           getPrefix Https = "https://"
-          getManager Http  = return httpManager
-          getManager Https =
+          getManager Http _ = return httpManager
+          getManager Https (T.takeWhile (/= ':') -> name) =
 #ifdef HEALTHCHECK_HTTPS
-              M.lookup skey <$> readIORef httpsManager >>=
+              HM.lookup name <$> readIORef httpsManager >>=
                   maybe (throwUserError $
-                            "Secure manager for service key " ++
-                                T.unpack skey ++ " was not found!"
+                            "Https manager for name " ++ T.unpack name ++
+                                " wasn't found!"
                         ) return
 #else
-              skey `seq` undefined
+              name `seq` undefined
 #endif
 
 catchBadResponse :: Peer -> IO (Peer, HttpStatus) -> IO (Peer, HttpStatus)
@@ -230,11 +269,13 @@ lookupServiceKey = (fromMaybe M.empty .) . M.lookup
 {-# SPECIALIZE INLINE lookupServiceKey ::
     ServiceKey -> MServiceKey NamedPeers -> MUpstream NamedPeers #-}
 
-toHostName :: ServiceKey -> PeerHostName
-toHostName key = let (_, t) = T.break (== ':') key
+toHostName :: ServiceKey -> Maybe PeerHostName
+toHostName key = let (_, t) = T.break (== '/') key
                  in if T.length t > 1
-                        then T.tail t
-                        else key
+                        then Just $ T.tail t
+                        else if T.length t == 1
+                                 then Nothing
+                                 else Just key
 
 throwUserError :: String -> IO a
 throwUserError = ioError . userError
@@ -283,13 +324,7 @@ checkPeers cf fstRun = do
             when (isJust ep) $ case epProto $ fromJust ep of
                 Https ->
 #ifdef HEALTHCHECK_HTTPS
-                    readIORef httpsManager >>=
-                        maybe (atomicModifyIORef' httpsManager $
-                                  (, ()) . M.insert skey'
-                                           (unsafePerformIO $
-                                               mkTlsManager $ T.unpack hname
-                                           )
-                              ) (void . return) . M.lookup skey'
+                    mkHttpsManager us hname
 #else
                     terminateWorkerProcess
                         "Healthcheck plugin wasn't built with support for https"
@@ -312,14 +347,14 @@ checkPeers cf fstRun = do
                     let (hname, !ps) = fromJust $ M.lookup u peers'
                     ps' <- forConcurrently ps $ \p ->
                         catchBadResponse p $
-                            query (epUrl ep') (epProto ep') skey' hname p pto
+                            query (epUrl ep') (epProto ep') hname p pto
                     let (psGood, psBad) = both (map fst) $
                             partition (byPassRule (epPassRule ep')
                                       . (\st -> defaultPassRuleParams
                                             { responseHttpStatus = st }
                                         )
                                       . snd
-                                      ) ps'
+                                      ) $ map (first fst) ps'
                         ic = T.intercalate ","
                     return $ T.concat [u, "|", ic psBad, "/", ic psGood]
             return $ concatResult ["1", skey, "\n", B.concat peers'']
@@ -363,7 +398,10 @@ updatePeers (C8.lines -> ls)
                             then do
                                 v <- peek pv
                                 (fromIntegral -> l) <- peek pl
-                                (filter (not . T.null) . T.split (== ',')
+                                (map (second (maybe T.empty snd . T.uncons)
+                                      . T.break (== '/')
+                                     )
+                                     . filter (not . T.null) . T.split (== ',')
                                     . T.decodeUtf8 -> ps'') <-
                                     B.unsafePackCStringLen (v, l)
                                 let (hname, peers'') =
@@ -424,8 +462,8 @@ receiveStats v sint = do
     return "done"
 ngxExportAsyncOnReqBody 'receiveStats
 
-sendStats' :: IO (Map Int32 (UTCTime, MServiceKey Peers))
-sendStats' = snd <$> readIORef stats
+sendStats' :: IO (Map Int32 (UTCTime, MServiceKey FlatPeers))
+sendStats' = M.map (second $ M.map $ M.map $ map fst) . snd <$> readIORef stats
 
 sendStats :: ByteString -> IO ContentHandlerResult
 sendStats = const $
@@ -434,7 +472,7 @@ sendStats = const $
     <$> sendStats'
 ngxExportAsyncHandler 'sendStats
 
-sendMergedStats' :: IO (MServiceKey AnnotatedPeers)
+sendMergedStats' :: IO (MServiceKey AnnotatedFlatPeers)
 sendMergedStats' = merge <$> sendStats'
     where merge = M.foldl (ML.unionWith $ M.unionWith pickLatest) ML.empty
                   . M.map (\(t, s) -> ML.map (M.map $ map (t,)) s)
@@ -513,7 +551,8 @@ ngxExportServiceIOYY 'statsServer
 
 reportPeers :: ByteString -> IO ContentHandlerResult
 reportPeers = const $ do
-    (M.map $ M.filter (not . null) . M.map snd -> peers') <- readIORef peers
+    (M.map $ M.map (map fst) . M.filter (not . null) . M.map snd -> peers') <-
+        readIORef peers
     return (encode peers', "application/json", 200, [])
 ngxExportAsyncHandler 'reportPeers
 
