@@ -159,12 +159,12 @@ mkHttpsManager us hname = do
                                     then do
                                         v <- peek pv
                                         (fromIntegral -> l) <- peek pl
-                                        v' <- B.unsafePackCStringLen (v, l)
-                                        free pv
+                                        (T.decodeUtf8 -> !v') <-
+                                            B.unsafePackCStringLen (v, l)
+                                        free v
                                         return $ filter (not . T.null)
                                                $ map (T.takeWhile (/= ':'))
-                                               $ T.split (== ',')
-                                               $ T.decodeUtf8 v'
+                                               $ T.split (== ',') v'
                                     else terminateWorkerProcess $
                                         "Failed to get servers in upstream " ++
                                             T.unpack ps ++ "!"
