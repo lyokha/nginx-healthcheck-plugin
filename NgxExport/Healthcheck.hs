@@ -68,6 +68,7 @@ import qualified Data.HashMap.Strict as HM
 import           Network.HTTP.Client.TLS
 import           Network.Connection
 import           Network.TLS
+import           Network.TLS.Extra.Cipher
 #endif
 
 #ifdef SNAP_STATS_SERVER
@@ -162,9 +163,8 @@ mkHttpsManager us hname = do
                                         flip finally (free v) $ do
                                             (T.decodeUtf8 -> !v') <-
                                                 B.unsafePackCStringLen (v, l)
-                                            return $ filter (not . T.null)
-                                                   $ map (T.takeWhile (/= ':'))
-                                                   $ T.split (== ',') v'
+                                            return $ filter (not . T.null) $
+                                                T.split (== ',') v'
                                     else terminateWorkerProcess $
                                         "Failed to get servers in upstream " ++
                                             T.unpack ps ++ "!"
@@ -172,13 +172,21 @@ mkHttpsManager us hname = do
             Just v -> return [v]
     atomicModifyIORef' httpsManager $ (, ())
         . (`HM.union` (HM.fromList $
-                           map (id &&& unsafePerformIO . mkManager . T.unpack)
-                               hnames
-                     )
+                          map (id &&& unsafePerformIO . mkManager) hnames
+                      )
           )
-    where mkManager name = newTlsManagerWith $
-              mkManagerSettings (TLSSettings $ defaultParamsClient name "")
-                  Nothing
+    where mkManager name =
+              let (T.unpack -> h, T.encodeUtf8 -> p) =
+                      second (fromMaybe "" . fmap snd . T.uncons) $
+                          T.break (':' ==) name
+                  defaultParams = defaultParamsClient h p
+                  newClientSupported = (clientSupported defaultParams)
+                      { supportedCiphers = ciphersuite_default }
+              in newTlsManagerWith $
+                    mkManagerSettings
+                        (TLSSettings defaultParams
+                            { clientSupported = newClientSupported }
+                        ) Nothing
 
 #endif
 
@@ -231,7 +239,7 @@ query url proto hname p@(addr, hname') tmo = do
           getPrefix Http  = "http://"
           getPrefix Https = "https://"
           getManager Http _ = return httpManager
-          getManager Https (T.takeWhile (/= ':') -> name) =
+          getManager Https name =
 #ifdef HEALTHCHECK_HTTPS
               HM.lookup name <$> readIORef httpsManager >>=
                   maybe (throwUserError $
