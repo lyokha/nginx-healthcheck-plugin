@@ -50,7 +50,11 @@ library
   if flag(HealthcheckHttps)
     build-depends:     http-client-tls >= 0.3.4
                      , unordered-containers
+                     , data-default-class
                      , crypton-connection
+                     , crypton-x509
+                     , crypton-x509-system
+                     , crypton-x509-validation
                      , tls >= 1.4.0
     cpp-options:      -DHEALTHCHECK_HTTPS
 

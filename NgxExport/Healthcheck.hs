@@ -65,10 +65,14 @@ import           Safe
 #ifdef HEALTHCHECK_HTTPS
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
+import           Data.Default.Class
 import           Network.HTTP.Client.TLS
 import           Network.Connection
-import           Network.TLS
+import           Network.TLS hiding (HashSHA256)
 import           Network.TLS.Extra.Cipher
+import           System.X509 (getSystemCertificateStore)
+import qualified Data.X509.Validation as X509
+import           Data.X509 (HashALG (..))
 #endif
 
 #ifdef SNAP_STATS_SERVER
@@ -170,23 +174,28 @@ mkHttpsManager us hname = do
                                             T.unpack ps ++ "!"
                 ) us
             Just v -> return [v]
-    atomicModifyIORef' httpsManager $ (, ())
-        . (`HM.union` (HM.fromList $
-                          map (id &&& unsafePerformIO . mkManager) hnames
-                      )
-          )
-    where mkManager name =
+    man <- mapM (\name -> (name, ) <$> mkManager name) hnames
+    atomicModifyIORef' httpsManager $ (, ()) . (`HM.union` HM.fromList man)
+    where mkManager name = do
+              systemCAStore <- getSystemCertificateStore
               let (T.unpack -> h, T.encodeUtf8 -> p) =
                       second (fromMaybe "" . fmap snd . T.uncons) $
                           T.break (':' ==) name
-                  defaultParams = defaultParamsClient h p
-                  newClientSupported = (clientSupported defaultParams)
-                      { supportedCiphers = ciphersuite_default }
-              in newTlsManagerWith $
-                    mkManagerSettings
-                        (TLSSettings defaultParams
-                            { clientSupported = newClientSupported }
-                        ) Nothing
+                  validateName = const . hookValidateName X509.defaultHooks
+                  defaultParams = (defaultParamsClient h p)
+                      { clientShared = def
+                          { sharedCAStore = systemCAStore }
+                      , clientHooks = def
+                          { onServerCertificate = X509.validate HashSHA256
+                              X509.defaultHooks
+                                  { hookValidateName = validateName h }
+                              X509.defaultChecks
+                          }
+                      , clientSupported = def
+                          { supportedCiphers = ciphersuite_default }
+                      }
+              newTlsManagerWith $
+                  mkManagerSettings (TLSSettings defaultParams) Nothing
 
 #endif
 

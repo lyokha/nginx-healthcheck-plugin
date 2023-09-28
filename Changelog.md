@@ -1,5 +1,7 @@
 ### 1.6.2
 
+- Fixed validation of server certificates by name (versions *1.6* and *1.6.1*
+  had no chance to work with *https* as it was expected because of this bug).
 - *New feature*: take the host name from the bound server name in the Nginx
   upstream configuration when the service key ends with a slash and this is the
   only slash inside it.
