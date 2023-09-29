@@ -33,7 +33,8 @@ Sign certificates.
 $ openssl x509 -req -days 365 -in certs/server/server.csr -CA certs/root/rootCA.crt -CAkey certs/root/rootCA.key -set_serial 01 -out certs/server/server.crt -extfile certs/openssl.cnf
 ```
 
-Make them trusted by the system.
+Make them trusted by the system (the following commands have meaning in
+*Fedora*, other systems may require other commands).
 
 ```ShellSession
 $ sudo trust anchor --store certs/server/server.crt
