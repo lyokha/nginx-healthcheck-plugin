@@ -18,7 +18,7 @@ You may use other subject values.
 
 Now put OpenSSL configuration in directory *certs/*.
 
-```
+```INI
 authorityKeyIdentifier = keyid, issuer
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
