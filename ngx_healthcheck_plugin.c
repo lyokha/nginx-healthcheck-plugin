@@ -16,10 +16,12 @@ static ngx_rbtree_t       *upstreams_rbt;
 static ngx_rbtree_node_t   upstreams_snt;
 
 ngx_int_t plugin_ngx_http_haskell_healthcheck_srv(ngx_cycle_t *cycle,
-    void *umcf_data, u_char *uname_in, u_char **srv_out, size_t *srv_len);
+    ngx_http_upstream_main_conf_t *umcf, u_char *uname_in, u_char **srv_out,
+    size_t *srv_len);
 ngx_int_t plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle,
-    void *umcf_data, volatile void *ntime_data, ngx_uint_t check_peers_in,
-    ngx_uint_t active, u_char *peers_in, u_char **peers_out, size_t *peers_len);
+    ngx_http_upstream_main_conf_t *umcf, volatile ngx_time_t *ntime,
+    ngx_uint_t check_peers_in, ngx_uint_t active, u_char *peers_in,
+    u_char **peers_out, size_t *peers_len);
 static void plugin_ngx_http_haskell_healthcheck_update_peer(ngx_cycle_t *cycle,
     time_t now, ngx_http_upstream_rr_peer_t *peer, ngx_uint_t good);
 static void wrap_ngx_str_rbtree_insert_value(ngx_rbtree_node_t *temp,
@@ -28,11 +30,10 @@ static uint32_t local_ngx_crc32_long(u_char *p, size_t len);
 
 
 ngx_int_t
-plugin_ngx_http_haskell_healthcheck_srv(ngx_cycle_t *cycle, void *umcf_data,
-    u_char *uname_in, u_char **srv_out, size_t *srv_len)
+plugin_ngx_http_haskell_healthcheck_srv(ngx_cycle_t *cycle,
+    ngx_http_upstream_main_conf_t *umcf, u_char *uname_in, u_char **srv_out,
+    size_t *srv_len)
 {
-    ngx_http_upstream_main_conf_t   *umcf = umcf_data;
-
     ngx_uint_t                       i, j, len = 0;
     ngx_http_upstream_srv_conf_t   **uscf;
     ngx_http_upstream_server_t      *us;
@@ -95,13 +96,11 @@ plugin_ngx_http_haskell_healthcheck_srv(ngx_cycle_t *cycle, void *umcf_data,
 
 
 ngx_int_t
-plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle, void *umcf_data,
-    volatile void *ntime_data, ngx_uint_t check_peers_in, ngx_uint_t active,
-    u_char *peers_in, u_char **peers_out, size_t *peers_len)
+plugin_ngx_http_haskell_healthcheck(ngx_cycle_t *cycle,
+    ngx_http_upstream_main_conf_t *umcf, volatile ngx_time_t *ntime,
+    ngx_uint_t check_peers_in, ngx_uint_t active, u_char *peers_in,
+    u_char **peers_out, size_t *peers_len)
 {
-    ngx_http_upstream_main_conf_t   *umcf = umcf_data;
-    volatile ngx_time_t             *ntime = ntime_data;
-
     ngx_uint_t                       i, len = 0;
     u_char                          *p, *p_prev;
     ngx_http_upstream_srv_conf_t   **uscf, *u = NULL;

@@ -9,34 +9,34 @@ jobs:
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
-        ghc: [8.6.5, 8.8.4, 8.10.7]
-        cabal: [3.4.0.0]
+        ghc: ['8.6', '8.8', '8.10']
+        cabal: ['3.4']
         nginx: [1.18.0]
         nginx-haskell-module: [3.2.1]
         experimental: [false]
         include:
-          - ghc: 9.6.2
-            cabal: 3.10.1.0
+          - ghc: '9.6'
+            cabal: '3.10'
             nginx: 1.22.1
             nginx-haskell-module: head
             experimental: false
-          - ghc: 9.6.2
-            cabal: 3.10.1.0
+          - ghc: '9.6'
+            cabal: '3.10'
             nginx: head
             nginx-haskell-module: head
             experimental: true
-          - ghc: 9.4.6
-            cabal: 3.8.1.0
+          - ghc: '9.4'
+            cabal: '3.8'
             nginx: 1.22.0
             nginx-haskell-module: head
             experimental: false
-          - ghc: 9.2.8
-            cabal: 3.6.2.0
+          - ghc: '9.2'
+            cabal: '3.6'
             nginx: 1.22.0
             nginx-haskell-module: head
             experimental: false
-          - ghc: 9.0.2
-            cabal: 3.4.0.0
+          - ghc: '9.0'
+            cabal: '3.4'
             nginx: 1.20.2
             nginx-haskell-module: head
             experimental: false
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Install GHC and Cabal
-        uses: haskell/actions/setup@v2
+        uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
@@ -118,7 +118,7 @@ jobs:
           cd simple
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
-          [ "$GHCVER" = 8.6.5 ] && \
+          [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
@@ -128,7 +128,7 @@ jobs:
           cd periodic
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
-          [ "$GHCVER" = 8.6.5 ] && \
+          [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
@@ -138,7 +138,7 @@ jobs:
           cd prometheus
           sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
               cabal.project
-          [ "$GHCVER" = 8.6.5 ] && \
+          [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
