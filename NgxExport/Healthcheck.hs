@@ -179,8 +179,7 @@ mkHttpsManager us hname = do
     where mkManager name = do
               systemCAStore <- getSystemCertificateStore
               let (T.unpack -> h, T.encodeUtf8 -> p) =
-                      second (fromMaybe "" . fmap snd . T.uncons) $
-                          T.break (':' ==) name
+                      second (maybe "" snd . T.uncons) $ T.break (':' ==) name
                   validateName = const . hookValidateName X509.defaultHooks
                   defaultParams = (defaultParamsClient h p)
                       { clientShared = def
