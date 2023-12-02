@@ -115,9 +115,8 @@ jobs:
           cd ngx-export-distribution
           cabal install ngx-export-distribution \
               --allow-newer='cabal-plan:base' \
-              --constraint='text<2.1' \
-              --constraint='bytestring<0.12' \
-              --constraint='containers<0.7' \
+              --allow-newer='cabal-plan:bytestring' \
+              --allow-newer='cabal-plan:text' \
               --constraint='ngx-export-distribution>=0.5.1.2' \
               --installdir="$(pwd)/bin"
           export PATH="$(pwd)/bin:$PATH"
