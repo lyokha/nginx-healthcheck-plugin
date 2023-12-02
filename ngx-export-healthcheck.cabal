@@ -9,7 +9,7 @@ description:           Active health checks and monitoring of Nginx upstreams.
 homepage:              http://github.com/lyokha/nginx-healthcheck-plugin
 license:               BSD3
 license-file:          LICENSE
-extra-source-files:    Changelog.md
+extra-doc-files:       Changelog.md
 author:                Alexey Radkov <alexey.radkov@gmail.com>
 maintainer:            Alexey Radkov <alexey.radkov@gmail.com>
 stability:             stable
@@ -17,6 +17,10 @@ copyright:             2022-2023 Alexey Radkov
 category:              Network
 build-type:            Simple
 cabal-version:         1.20
+
+source-repository head
+  type:                git
+  location:            https://github.com/lyokha/nginx-healthcheck-plugin.git
 
 flag SnapStatsServer
   description:         Build Snap server to collect stats.
