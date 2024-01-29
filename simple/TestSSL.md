@@ -16,7 +16,7 @@ $ openssl req -new -newkey rsa:2048 -nodes -out certs/server/server.csr -subj '/
 
 You may use other subject values.
 
-Now put OpenSSL configuration in directory *certs/*.
+Now put OpenSSL configuration in file *certs/openssl.cnf*.
 
 ```INI
 authorityKeyIdentifier = keyid, issuer
