@@ -27,17 +27,16 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 ```
 
-Sign certificates.
+Sign the server certificate.
 
 ```ShellSession
 $ openssl x509 -req -days 365 -in certs/server/server.csr -CA certs/root/rootCA.crt -CAkey certs/root/rootCA.key -set_serial 01 -out certs/server/server.crt -extfile certs/openssl.cnf
 ```
 
-Make them trusted by the system (the following commands have meaning in
-*Fedora*, other systems may require other commands).
+Make the root certificate trusted by the system (the following commands have
+meaning in *Fedora*, other systems may require other commands).
 
 ```ShellSession
-$ sudo trust anchor --store certs/server/server.crt
 $ sudo trust anchor --store certs/root/rootCA.crt
 $ sudo update-ca-trust
 ```
