@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.6.2
+version:               1.6.3
 synopsis:              Active health checks and monitoring of Nginx upstreams
 description:           Active health checks and monitoring of Nginx upstreams.
         .
@@ -13,7 +13,7 @@ extra-doc-files:       Changelog.md
 author:                Alexey Radkov <alexey.radkov@gmail.com>
 maintainer:            Alexey Radkov <alexey.radkov@gmail.com>
 stability:             stable
-copyright:             2022-2023 Alexey Radkov
+copyright:             2022-2024 Alexey Radkov
 category:              Network
 build-type:            Simple
 cabal-version:         1.20
@@ -57,6 +57,7 @@ library
                      , data-default-class
                      , crypton-connection
                      , crypton-x509
+                     , crypton-x509-store
                      , crypton-x509-system
                      , crypton-x509-validation
                      , tls >= 1.4.0

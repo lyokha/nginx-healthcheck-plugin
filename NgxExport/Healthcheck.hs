@@ -5,7 +5,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  NgxExport.Healthcheck
--- Copyright   :  (c) Alexey Radkov 2022-2023
+-- Copyright   :  (c) Alexey Radkov 2022-2024
 -- License     :  BSD-style
 --
 -- Maintainer  :  alexey.radkov@gmail.com
@@ -16,7 +16,14 @@
 --
 -----------------------------------------------------------------------------
 
-module NgxExport.Healthcheck (module Types) where
+module NgxExport.Healthcheck (
+    -- * Type declarations
+                              module Types
+#ifdef HEALTHCHECK_HTTPS
+    -- * Use a custom CA store
+                             ,useCustomCAStore
+#endif
+                             ) where
 
 import           NgxExport
 import           NgxExport.Healthcheck.Types as Types
@@ -71,8 +78,10 @@ import           Network.Connection
 import           Network.TLS hiding (HashSHA256)
 import           Network.TLS.Extra.Cipher
 import           System.X509 (getSystemCertificateStore)
+import           Data.X509.CertificateStore
 import qualified Data.X509.Validation as X509
 import           Data.X509 (HashALG (..))
+import           Control.Applicative
 #endif
 
 #ifdef SNAP_STATS_SERVER
@@ -147,6 +156,94 @@ foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck_srv"
     c_healthcheck_srv :: Ptr () -> Ptr () -> CString -> Ptr CString ->
                          Ptr CSize -> IO CIntPtr
 
+customCAStore :: IORef (Maybe CertificateStore)
+customCAStore = unsafePerformIO $ newIORef Nothing
+
+-- | Use a custom CA store.
+--
+-- When doing health checks over /https/, it's sometimes required to tweak the
+-- location of the trusted certificates store. This functions implements this
+-- tweak when it's run from the /initialization hook/.
+--
+-- ==== __Example 1. Use an accessible CA store__
+-- ===== File /ngx_healthcheck.hs/
+-- @
+-- {-\# LANGUAGE TemplateHaskell \#-}
+--
+-- module NgxHealthcheck where
+--
+-- import           NgxExport
+-- import           NgxExport.Healthcheck
+-- import           System.Environment
+-- import           Data.Maybe
+-- import           Data.X509.CertificateStore
+--
+-- customCAStore :: IO ()
+-- customCAStore = do
+--     args \<- dropWhile (\/= \"--ca\") \<$\> 'System.Environment.getArgs'
+--     case args of
+--         _ : ca : _ -> do
+--             store \<- fromJust \<$\> 'readCertificateStore' ca
+--             store \`seq\` __/useCustomCAStore/__ store
+--         _ -> return ()
+-- 'ngxExportInitHook' \'customCAStore
+-- @
+--
+-- ===== File /nginx.conf/ (a fragment)
+-- @
+--     haskell program_options --ca \/path\/to\//ca-dir-or-file/;
+--     haskell load \/var\/lib\/nginx\/ngx_healthcheck.so;
+-- @
+--
+-- ==== __Example 2. Use a CA store accessible only by root__
+--
+-- In this case, use the /sysread/ trick to make the Nginx master process
+-- substitute file contents in place of the path in the next argument of
+-- /haskell program_options/.
+--
+-- ===== File /ngx_healthcheck.hs/
+-- @
+-- {-\# LANGUAGE TemplateHaskell \#-}
+--
+-- module NgxHealthcheck where
+--
+-- import           NgxExport
+-- import           NgxExport.Healthcheck
+-- import           Data.ByteString (ByteString)
+-- import qualified Data.ByteString.Char8 as C8
+-- import           System.Environment
+-- import           Data.Maybe
+-- import           Data.Either
+-- import           Data.X509
+-- import           Data.X509.CertificateStore
+-- import           Data.PEM
+--
+-- mkCertificateStore :: ByteString -> Maybe CertificateStore
+-- mkCertificateStore ca = do
+--     parsed <- either (return Nothing) (Just . rights . map getCert) $
+--         pemParseBS ca
+--     Just $ 'makeCertificateStore' parsed
+--     where getCert = decodeSignedCertificate . pemContent
+--
+-- customCAStore :: IO ()
+-- customCAStore = do
+--     args \<- dropWhile (\/= \"--sysread:ca\") \<$\> 'System.Environment.getArgs'
+--     case args of
+--         _ : ca : _ -> do
+--             let store = fromJust $ mkCertificateStore $ C8.pack ca
+--             store \`seq\` __/useCustomCAStore/__ store
+--         _ -> return ()
+-- 'ngxExportInitHook' \'customCAStore
+-- @
+--
+-- ===== File /nginx.conf/ (a fragment)
+-- @
+--     haskell program_options --/sysread:/ca \/path\/to\//ca-file/;
+--     haskell load \/var\/lib\/nginx\/ngx_healthcheck.so;
+-- @
+useCustomCAStore :: CertificateStore -> IO ()
+useCustomCAStore = writeIORef customCAStore . Just
+
 mkHttpsManager :: [Upstream] -> Maybe PeerHostName -> IO ()
 mkHttpsManager us hname = do
     hnames <-
@@ -177,13 +274,14 @@ mkHttpsManager us hname = do
     man <- mapM (\name -> (name, ) <$> mkManager name) hnames
     atomicModifyIORef' httpsManager $ (, ()) . (`HM.union` HM.fromList man)
     where mkManager name = do
-              systemCAStore <- getSystemCertificateStore
+              caStore <- do { Just v <- readIORef customCAStore; return v }
+                            <|> getSystemCertificateStore
               let (T.unpack -> h, T.encodeUtf8 -> p) =
                       second (maybe "" snd . T.uncons) $ T.break (':' ==) name
                   validateName = const . hookValidateName X509.defaultHooks
                   defaultParams = (defaultParamsClient h p)
                       { clientShared = def
-                          { sharedCAStore = systemCAStore }
+                          { sharedCAStore = caStore }
                       , clientHooks = def
                           { onServerCertificate = X509.validate HashSHA256
                               X509.defaultHooks

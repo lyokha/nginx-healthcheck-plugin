@@ -1,3 +1,7 @@
+### 1.6.3
+
+- Added ability to tweak CA store when running health checks over *https*.
+
 ### 1.6.2
 
 - Fixed validation of server certificates by name (versions *1.6* and *1.6.1*
