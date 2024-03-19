@@ -165,7 +165,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 -- location of the trusted certificates store. This functions implements this
 -- tweak when it's run from the /initialization hook/.
 --
--- ==== __Example 1. Use an accessible CA store__
+-- ==== __Example 1: use a CA store accessible in Nginx worker processes__
 -- ===== File /ngx_healthcheck.hs/
 -- @
 -- {-\# LANGUAGE TemplateHaskell \#-}
@@ -195,9 +195,9 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --     haskell load \/var\/lib\/nginx\/ngx_healthcheck.so;
 -- @
 --
--- ==== __Example 2. Use a CA store accessible only by root__
+-- ==== __Example 2: use a CA store accessible only in Nginx master process__
 --
--- In this case, use the /sysread/ trick to make the Nginx master process
+-- In this case, use the /sysread/ trick to make Nginx master process
 -- substitute file contents in place of the path in the next argument of
 -- /haskell program_options/.
 --
