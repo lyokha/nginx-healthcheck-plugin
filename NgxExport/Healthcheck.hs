@@ -158,12 +158,13 @@ foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck_srv"
 
 customCAStore :: IORef (Maybe CertificateStore)
 customCAStore = unsafePerformIO $ newIORef Nothing
+{-# NOINLINE customCAStore #-}
 
--- | Use a custom CA store.
+-- | Use a custom CA store in health checks over https.
 --
--- When doing health checks over /https/, it's sometimes required to tweak the
--- location of the trusted certificates store. This functions implements this
--- tweak when it's run from the /initialization hook/.
+-- When doing health checks over https, it's sometimes required to tweak the
+-- location of the trusted certificates store. This functions implements such a
+-- tweak when it's run from the initialization hook.
 --
 -- ==== __Example 1: use a CA store accessible in Nginx worker processes__
 -- ===== File /ngx_healthcheck.hs/
@@ -197,9 +198,9 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --
 -- ==== __Example 2: use a CA store accessible only in Nginx master process__
 --
--- In this case, use the /sysread/ trick to make Nginx master process
--- substitute file contents in place of the path in the next argument of
--- /haskell program_options/.
+-- In this case, the /sysread/ trick is used to make Nginx master process
+-- substitute the file contents in place of the path contained in the argument
+-- of /haskell program_options/ which follows /--sysread:ca/.
 --
 -- ===== File /ngx_healthcheck.hs/
 -- @
@@ -218,7 +219,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 -- import           Data.X509.CertificateStore
 -- import           Data.PEM
 --
--- mkCertificateStore :: ByteString -> Maybe CertificateStore
+-- mkCertificateStore :: ByteString -> Maybe 'CertificateStore'
 -- mkCertificateStore ca = do
 --     parsed <- either (return Nothing) (Just . rights . map getCert) $
 --         pemParseBS ca
@@ -227,7 +228,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --
 -- customCAStore :: IO ()
 -- customCAStore = do
---     args \<- dropWhile (\/= \"--sysread:ca\") \<$\> 'System.Environment.getArgs'
+--     args \<- dropWhile (\/= \"--/sysread:/ca\") \<$\> 'System.Environment.getArgs'
 --     case args of
 --         _ : ca : _ -> do
 --             let store = fromJust $ mkCertificateStore $ C8.pack ca
@@ -241,6 +242,8 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --     haskell program_options --/sysread:/ca \/path\/to\//ca-file/;
 --     haskell load \/var\/lib\/nginx\/ngx_healthcheck.so;
 -- @
+--
+-- @since 1.6.3
 useCustomCAStore :: CertificateStore -> IO ()
 useCustomCAStore = writeIORef customCAStore . Just
 
