@@ -198,9 +198,9 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --
 -- ==== __Example 2: use a CA store accessible only in Nginx master process__
 --
--- In this case, the /sysread/ trick is used to make Nginx master process
--- substitute the file contents in place of the path contained in the argument
--- of /haskell program_options/ which follows /--sysread:ca/.
+-- In this case, the /mread/ trick is used to make Nginx master process
+-- substitute the file content in place of the path contained in the argument
+-- of /haskell program_options/ which follows /--mread:ca/.
 --
 -- ===== File /ngx_healthcheck.hs/
 -- @
@@ -228,7 +228,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --
 -- customCAStore :: IO ()
 -- customCAStore = do
---     args \<- dropWhile (\/= \"--/sysread:/ca\") \<$\> 'System.Environment.getArgs'
+--     args \<- dropWhile (\/= \"--/mread:/ca\") \<$\> 'System.Environment.getArgs'
 --     case args of
 --         _ : ca : _ -> do
 --             let store = fromJust $ mkCertificateStore $ C8.pack ca
@@ -239,7 +239,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --
 -- ===== File /nginx.conf/ (a fragment)
 -- @
---     haskell program_options --/sysread:/ca \/path\/to\//ca-file/;
+--     haskell program_options --/mread:/ca \/path\/to\//ca-file/;
 --     haskell load \/var\/lib\/nginx\/ngx_healthcheck.so;
 -- @
 --
