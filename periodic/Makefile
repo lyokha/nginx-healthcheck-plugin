@@ -52,9 +52,6 @@ endif
 	$(NHMTOOL) deps $(PKGNAME) -d "$(BUILDDIR)" >> $(GHCENV)
 
 $(DISTR): $(GHCENV) $(SRC)
-	cabal install --builddir="$(BUILDDIR)" --lib --only-dependencies \
-	  --package-env .
-ifeq ($(INPLACE),1)
 	if test "$(NHMTOOL)" = nhm-tool && ! command -v nhm-tool >/dev/null; \
 	then \
 	  PATH=$$(dirname \
