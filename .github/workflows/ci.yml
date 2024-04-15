@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         ghc: ['8.6', '8.8', '8.10']
-        cabal: ['3.4']
+        cabal: ['3.8']
         nginx: [1.18.0]
         nginx-haskell-module: [3.2.2]
         experimental: [false]
@@ -36,12 +36,12 @@ jobs:
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.2'
-            cabal: '3.6'
+            cabal: '3.8'
             nginx: 1.22.0
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.0'
-            cabal: '3.4'
+            cabal: '3.8'
             nginx: 1.20.2
             nginx-haskell-module: head
             experimental: false
@@ -65,8 +65,6 @@ jobs:
           CABALVER: ${{ matrix.cabal }}
           NGXHMVER: ${{ matrix.nginx-haskell-module }}
         run: |
-          set -e
-
           cabal --version
           echo "$(ghc --version) "`
               `"[$(ghc --print-project-git-commit-id 2>/dev/null || echo '?')]"
@@ -111,17 +109,6 @@ jobs:
           export PATH="$(pwd)/objs:$PATH"
           cd -
 
-          install -d "$(pwd)/ngx-export-distribution/bin"
-          cd ngx-export-distribution
-          cabal install ngx-export-distribution \
-              --allow-newer='cabal-plan:base' \
-              --allow-newer='cabal-plan:bytestring' \
-              --allow-newer='cabal-plan:text' \
-              --constraint='ngx-export-distribution>=0.5.1.2' \
-              --installdir="$(pwd)/bin"
-          export PATH="$(pwd)/bin:$PATH"
-          cd -
-
           echo "$GHCVER" | grep -q '^8\.' &&
               LINKRTS="LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)"
 
@@ -131,6 +118,9 @@ jobs:
           [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
+          # FIXME: the following constraints mitigate transient inconsistencies
+          # on Hackage!
+          sed -i 's/^constraints: .*/&, filepath < 1.5/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
@@ -141,6 +131,9 @@ jobs:
           [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
+          # FIXME: the following constraints mitigate transient inconsistencies
+          # on Hackage!
+          sed -i 's/^constraints: .*/&, filepath < 1.5/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
@@ -151,6 +144,9 @@ jobs:
           [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
+          # FIXME: the following constraints mitigate transient inconsistencies
+          # on Hackage!
+          sed -i 's/^constraints: .*/&, filepath < 1.5/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
@@ -159,6 +155,4 @@ jobs:
           sudo sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
           prove -r t
           cd -
-
-          set +e
 
