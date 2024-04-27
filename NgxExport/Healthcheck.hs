@@ -163,7 +163,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 -- | Use a custom CA store in health checks over https.
 --
 -- When doing health checks over https, it's sometimes required to tweak the
--- location of the trusted certificates store. This functions implements such a
+-- location of the trusted certificates store. This function implements such a
 -- tweak when it's run from the initialization hook.
 --
 -- ==== __Example 1: use a CA store accessible in Nginx worker processes__

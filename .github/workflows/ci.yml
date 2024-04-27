@@ -12,32 +12,32 @@ jobs:
         ghc: ['8.6', '8.8', '8.10']
         cabal: ['3.8']
         nginx: [1.18.0]
-        nginx-haskell-module: [3.2.2]
+        nginx-haskell-module: [3.3.2]
         experimental: [false]
         include:
           - ghc: '9.8'
-            cabal: '3.10'
-            nginx: 1.24.0
+            cabal: head
+            nginx: head
             nginx-haskell-module: head
             experimental: true
           - ghc: '9.8'
             cabal: '3.10'
-            nginx: head
+            nginx: 1.26.0
             nginx-haskell-module: head
             experimental: true
           - ghc: '9.6'
             cabal: '3.10'
-            nginx: 1.22.1
+            nginx: 1.24.0
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.4'
             cabal: '3.8'
-            nginx: 1.22.0
+            nginx: 1.22.1
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.2'
             cabal: '3.8'
-            nginx: 1.22.0
+            nginx: 1.22.1
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.0'
