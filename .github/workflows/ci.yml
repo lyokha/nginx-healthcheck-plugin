@@ -54,7 +54,7 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
       - name: Install prove
-        uses: perl-actions/install-with-cpanm@v1.5
+        uses: perl-actions/install-with-cpanm@v1.6
         with:
           install: "Test::Nginx"
           tests: false
