@@ -118,9 +118,6 @@ jobs:
           [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
-          # FIXME: the following constraints mitigate transient inconsistencies
-          # on Hackage!
-          sed -i 's/^constraints: .*/&, filepath < 1.5/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
@@ -131,9 +128,6 @@ jobs:
           [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
-          # FIXME: the following constraints mitigate transient inconsistencies
-          # on Hackage!
-          sed -i 's/^constraints: .*/&, filepath < 1.5/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
@@ -144,9 +138,6 @@ jobs:
           [ "$GHCVER" = 8.6 ] && \
                      sed -i 's/\(^constraints: ngx-export-healthcheck '`
                            `'+snapstatsserver\).*/\1/' cabal.project
-          # FIXME: the following constraints mitigate transient inconsistencies
-          # on Hackage!
-          sed -i 's/^constraints: .*/&, filepath < 1.5/' cabal.project
           make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
           make PREFIX="$TEST_NGINX_HCLIB_DIR" install
           cd -
