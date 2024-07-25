@@ -33,14 +33,14 @@ GHCPUID := $(shell if test `echo $(CABALVER) 3.12 | sed 's/ /\n/' | \
                             grep -i '"Project Unit Id"' | head -1 | \
                             sed 's/.\+,"\(.\+\)"\x29$$/\1/'`; \
                        if test -z "$$ghcpuid"; \
-                       then echo ''; \
-                       else echo "$$ghcpuid" | sed 's/.*/-&/'; \
+                       then echo "$(GHCVER)"; \
+                       else echo "$$ghcpuid"; \
                        fi; \
-                   else echo ''; \
+                   else echo "$(GHCVER)"; \
                    fi)
 GHCENV := .ghc.environment.$(MACHINE)-$(KERNEL)-$(GHCVER)
 GHCENVLNK := .ghc.environment.lnk
-DEPLIBS := $(MACHINE)-$(KERNEL)-ghc-$(GHCVER)$(GHCPUID)
+DEPLIBS := $(MACHINE)-$(KERNEL)-ghc-$(GHCPUID)
 BUILDDIR := dist-nhm
 SETUPCONFIG := $(BUILDDIR)/setup-config
 
