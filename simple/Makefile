@@ -25,14 +25,14 @@ GHC := ghc
 CABAL := cabal
 GHCVER := $(shell $(GHC) --numeric-version)
 CABALVER := $(shell $(CABAL) --numeric-version)
-GHCPUID := $(shell if [ `echo $(CABALVER) 3.12 | sed 's/ /\n/' | \
-                         sort -V | head -1` == 3.12 ] && \
-                      [ `echo $(GHCVER) 9.10 | sed 's/ /\n/' | \
-                         sort -V | head -1` == 9.10 ]; \
+GHCPUID := $(shell if test `echo $(CABALVER) 3.12 | sed 's/ /\n/' | \
+                         sort -V | head -1` = 3.12 && \
+                      test `echo $(GHCVER) 9.10 | sed 's/ /\n/' | \
+                         sort -V | head -1` = 9.10; \
                    then ghcpuid=`$(GHC) --info | \
                             grep -i '"Project Unit Id"' | head -1 | \
                             sed 's/.\+,"\(.\+\)"\x29$$/\1/'`; \
-                       if [ -z "$$ghcpuid" ]; \
+                       if test -z "$$ghcpuid"; \
                        then echo ''; \
                        else echo "$$ghcpuid" | sed 's/.*/-&/'; \
                        fi; \
