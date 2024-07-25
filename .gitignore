@@ -6,6 +6,7 @@
 
 dist/
 dist-newstyle/
+dist-nhm/
 /test/t/servroot/
 
 /compile_flags.txt

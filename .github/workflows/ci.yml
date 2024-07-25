@@ -12,19 +12,24 @@ jobs:
         ghc: ['8.6', '8.8', '8.10']
         cabal: ['3.8']
         nginx: [1.20.2]
-        nginx-haskell-module: [3.3.2]
+        nginx-haskell-module: [3.4.1]
         experimental: [false]
         include:
-          - ghc: '9.8'
+          - ghc: '9.10'
             cabal: head
             nginx: head
             nginx-haskell-module: head
             experimental: true
+          - ghc: '9.10'
+            cabal: '3.12'
+            nginx: 1.26.1
+            nginx-haskell-module: head
+            experimental: false
           - ghc: '9.8'
             cabal: '3.10'
-            nginx: 1.26.0
+            nginx: 1.26.1
             nginx-haskell-module: head
-            experimental: true
+            experimental: false
           - ghc: '9.6'
             cabal: '3.10'
             nginx: 1.24.0
@@ -112,35 +117,18 @@ jobs:
           echo "$GHCVER" | grep -q '^8\.' &&
               LINKRTS="LINKRTS=-lHSrts_thr-ghc$(ghc --numeric-version)"
 
-          cd simple
-          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
-              cabal.project
-          [ "$GHCVER" = 8.6 ] && \
-                     sed -i 's/\(^constraints: ngx-export-healthcheck '`
-                           `'+snapstatsserver\).*/\1/' cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" install
-          cd -
-
-          cd periodic
-          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
-              cabal.project
-          [ "$GHCVER" = 8.6 ] && \
-                     sed -i 's/\(^constraints: ngx-export-healthcheck '`
-                           `'+snapstatsserver\).*/\1/' cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" install
-          cd -
-
-          cd prometheus
-          sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
-              cabal.project
-          [ "$GHCVER" = 8.6 ] && \
-                     sed -i 's/\(^constraints: ngx-export-healthcheck '`
-                           `'+snapstatsserver\).*/\1/' cabal.project
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
-          make PREFIX="$TEST_NGINX_HCLIB_DIR" install
-          cd -
+          for dir in simple periodic prometheus
+          do
+              cd $dir
+              sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
+                  cabal.project
+              [ "$GHCVER" = 8.6 ] && \
+                         sed -i 's/\(^constraints: ngx-export-healthcheck '`
+                               `'+snapstatsserver\).*/\1/' cabal.project
+              make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
+              make PREFIX="$TEST_NGINX_HCLIB_DIR" install
+              cd -
+          done
 
           cd test
           sudo sh -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
