@@ -12,7 +12,7 @@ jobs:
         ghc: ['8.6', '8.8', '8.10']
         cabal: ['3.8']
         nginx: [1.20.2]
-        nginx-haskell-module: [3.4.1]
+        nginx-haskell-module: [3.4.2]
         experimental: [false]
         include:
           - ghc: '9.10'
@@ -22,12 +22,12 @@ jobs:
             experimental: true
           - ghc: '9.10'
             cabal: '3.12'
-            nginx: 1.26.1
+            nginx: 1.26.2
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.8'
             cabal: '3.10'
-            nginx: 1.26.1
+            nginx: 1.26.2
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.6'
@@ -59,7 +59,7 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
       - name: Install prove
-        uses: perl-actions/install-with-cpanm@v1.6
+        uses: perl-actions/install-with-cpanm@v1.7
         with:
           install: "Test::Nginx"
           tests: false
