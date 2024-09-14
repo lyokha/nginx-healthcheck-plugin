@@ -25,7 +25,7 @@ module NgxExport.Healthcheck (
     -- * Type declarations
                               module Types
 #ifdef HEALTHCHECK_HTTPS
-    -- * Use a custom CA store
+    -- * Use of a custom CA store
                              ,useCustomCAStore
 #endif
                              ) where
