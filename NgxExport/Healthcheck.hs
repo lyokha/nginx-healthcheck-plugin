@@ -14,6 +14,11 @@
 --
 -- Active health checks and monitoring of Nginx upstreams.
 --
+-- This documentation contains a brief description of the API required for
+-- building custom health check modules. For an elaborate explanation of the
+-- subject of this module see
+-- <https://github.com/lyokha/nginx-healthcheck-plugin#readme>.
+--
 -----------------------------------------------------------------------------
 
 module NgxExport.Healthcheck (
@@ -166,7 +171,8 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 -- location of the trusted certificates store. This function implements such a
 -- tweak when it's run from the initialization hook.
 --
--- ==== __Example 1: use a CA store accessible in Nginx worker processes__
+-- ==== __Example 1: use a CA store accessible in Nginx worker processes.__
+--
 -- ===== File /ngx_healthcheck.hs/
 -- @
 -- {-\# LANGUAGE TemplateHaskell \#-}
@@ -196,7 +202,7 @@ customCAStore = unsafePerformIO $ newIORef Nothing
 --     haskell load \/var\/lib\/nginx\/ngx_healthcheck.so;
 -- @
 --
--- ==== __Example 2: use a CA store accessible only in Nginx master process__
+-- ==== __Example 2: use a CA store accessible only in Nginx master process.__
 --
 -- In this case, the /mread/ trick is used to make Nginx master process
 -- substitute the file content in place of the path contained in the argument
