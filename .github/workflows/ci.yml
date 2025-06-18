@@ -9,25 +9,30 @@ jobs:
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
-        ghc: ['8.6', '8.8', '8.10']
+        ghc: ['8.6', '8.8', '8.10', '9.0', '9.2']
         cabal: ['3.8']
-        nginx: [1.20.2]
-        nginx-haskell-module: [3.4.2]
+        nginx: [1.22.1]
+        nginx-haskell-module: [3.4.3]
         experimental: [false]
         include:
-          - ghc: '9.10'
+          - ghc: '9.12'
             cabal: head
             nginx: head
             nginx-haskell-module: head
             experimental: true
+          - ghc: '9.12'
+            cabal: '3.14'
+            nginx: 1.28.0
+            nginx-haskell-module: head
+            experimental: false
           - ghc: '9.10'
             cabal: '3.12'
-            nginx: 1.26.2
+            nginx: 1.26.3
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.8'
             cabal: '3.10'
-            nginx: 1.26.2
+            nginx: 1.26.3
             nginx-haskell-module: head
             experimental: false
           - ghc: '9.6'
@@ -38,16 +43,6 @@ jobs:
           - ghc: '9.4'
             cabal: '3.8'
             nginx: 1.24.0
-            nginx-haskell-module: head
-            experimental: false
-          - ghc: '9.2'
-            cabal: '3.8'
-            nginx: 1.22.1
-            nginx-haskell-module: head
-            experimental: false
-          - ghc: '9.0'
-            cabal: '3.8'
-            nginx: 1.22.1
             nginx-haskell-module: head
             experimental: false
     steps:
