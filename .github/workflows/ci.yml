@@ -9,6 +9,8 @@ jobs:
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
+        # builds with ghc 9.8.4, 9.10.2, 9.12.1, 9.12.2 fail due to issue
+        # https://gitlab.haskell.org/ghc/ghc/-/issues/26136
         ghc: ['8.6', '8.8', '8.10', '9.0', '9.2']
         cabal: ['3.8']
         nginx: [1.22.1]
@@ -24,13 +26,13 @@ jobs:
             cabal: '3.14'
             nginx: 1.28.0
             nginx-haskell-module: head
-            experimental: false
-          - ghc: '9.10'
+            experimental: true
+          - ghc: '9.10.3'
             cabal: '3.12'
             nginx: 1.26.3
             nginx-haskell-module: head
             experimental: false
-          - ghc: '9.8'
+          - ghc: '9.8.2'
             cabal: '3.10'
             nginx: 1.26.3
             nginx-haskell-module: head
