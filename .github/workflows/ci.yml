@@ -120,7 +120,7 @@ jobs:
               sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
                   cabal.project
               [ "$GHCVER" = 8.6 ] && \
-                         sed -i 's/\(^constraints: ngx-export-healthcheck '`
+                         sed -i 's/\(^constraints:\s\+ngx-export-healthcheck '`
                                `'+snapstatsserver\).*/\1/' cabal.project
               make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
               make PREFIX="$TEST_NGINX_HCLIB_DIR" install
