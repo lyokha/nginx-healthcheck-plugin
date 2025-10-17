@@ -1,8 +1,9 @@
 -- note that ngx-export-healthcheck will be taken from Hackage;
 -- to build ngx-export-healthcheck locally, add ../ngx-export-healthcheck.cabal
 -- to packages
-packages: ngx-healthcheck-periodic.cabal
+packages:       ngx-healthcheck-periodic.cabal
 
 -- enforce building the Snap monitoring server
-constraints: ngx-export-healthcheck +snapstatsserver +healthcheckhttps
+constraints:    ngx-export-healthcheck +snapstatsserver +healthcheckhttps
+              , ngx-export-tools-extra -pcre
 

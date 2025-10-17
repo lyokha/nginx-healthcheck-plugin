@@ -60,10 +60,6 @@ jobs:
         with:
           install: "Test::Nginx"
           tests: false
-      - name: Install libpcre
-        run: |
-          sudo apt-get update 
-          sudo apt-get install -y libpcre3-dev
       - name: Install and test
         env:
           GHCVER: ${{ matrix.ghc }}
