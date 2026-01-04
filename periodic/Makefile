@@ -97,7 +97,8 @@ $(DISTR): $(SETUPCONFIG) $(SRC)
 	runhaskell --ghc-arg=-package=base \
 	  --ghc-arg=-package="$(PKGDISTR)" Setup.hs build \
 	  --builddir="$(BUILDDIR)" \
-	  --ghc-options="$(SRC) -o $(LIB) -L$(PREFIX) -l$(PLUGNAME) $(LINKRTS)"
+	  --ghc-options="$(SRC) -o $(LIB) -L$(PREFIX) -l$(PLUGNAME) "` \
+	    `"-package-env $(GHCENVLNK) $(LINKRTS)"
 
 install: $(DISTR)
 	install -d "$(PREFIX)"
