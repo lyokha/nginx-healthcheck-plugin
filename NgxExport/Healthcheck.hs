@@ -5,7 +5,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  NgxExport.Healthcheck
--- Copyright   :  (c) Alexey Radkov 2022-2024
+-- Copyright   :  (c) Alexey Radkov 2022-2026
 -- License     :  BSD-style
 --
 -- Maintainer  :  alexey.radkov@gmail.com
@@ -39,7 +39,6 @@ import           Data.Map (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Lazy as ML
 import           Control.Monad
-import           Control.Arrow
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Exception
@@ -59,6 +58,7 @@ import           Data.List
 import           Data.Char
 import           Data.Ord
 import           Data.Function
+import           Data.Bifunctor
 import           Foreign.C.Types
 import           Foreign.C.String
 import           Foreign.Ptr
@@ -66,9 +66,7 @@ import           Foreign.Storable
 import           Foreign.Marshal.Alloc
 import           Foreign.Marshal.Utils
 import           Data.Aeson
-#if MIN_VERSION_time(1,9,1)
 import           Data.Fixed
-#endif
 import           Data.Int
 import           Data.Time.Clock
 import           Data.Time.Calendar
@@ -314,23 +312,13 @@ stats :: IORef (UTCTime, Map Int32 (UTCTime, MServiceKey Peers))
 stats = unsafePerformIO $ newIORef (UTCTime (ModifiedJulianDay 0) 0, M.empty)
 {-# NOINLINE stats #-}
 
-both :: Arrow a => a b c -> a (b, b) (c, c)
-both = join (***)
-
-#if MIN_VERSION_time(1,9,1)
 asIntegerPart :: forall a. HasResolution a => Integer -> Fixed a
 asIntegerPart = MkFixed . (resolution (undefined :: Fixed a) *)
 {-# SPECIALIZE INLINE asIntegerPart :: Integer -> Pico #-}
-#endif
 
 toNominalDiffTime :: TimeInterval -> NominalDiffTime
 toNominalDiffTime =
-#if MIN_VERSION_time(1,9,1)
-    secondsToNominalDiffTime . asIntegerPart
-#else
-    fromRational . toRational . secondsToDiffTime
-#endif
-    . fromIntegral . toSec
+    secondsToNominalDiffTime . asIntegerPart . fromIntegral . toSec
 
 getUrl :: Url -> Manager -> PeerHostName -> TimeInterval -> IO HttpStatus
 getUrl url man hname ((1e6 *) . toSec -> tmo) = do
@@ -450,7 +438,7 @@ checkPeers cf fstRun = do
                     mkHttpsManager us hname
 #else
                     terminateWorkerProcess
-                        "Healthcheck plugin wasn't built with support for https"
+                        "Healthcheck plugin wasn't built with HTTPS support"
 #endif
                 _ -> return ()
             atomicModifyIORef' active $ (, ()) . (skey' :)
@@ -471,7 +459,7 @@ checkPeers cf fstRun = do
                     ps' <- forConcurrently ps $ \p ->
                         catchBadResponse p $
                             query (epUrl ep') (epProto ep') hname p pto
-                    let (psGood, psBad) = both (map fst) $
+                    let (psGood, psBad) = join bimap (map fst) $
                             partition (byPassRule (epPassRule ep')
                                       . (\st -> defaultPassRuleParams
                                             { responseHttpStatus = st }
@@ -522,10 +510,10 @@ updatePeers (C8.lines -> ls)
                                 v <- peek pv
                                 (fromIntegral -> l) <- peek pl
                                 (map (second (maybe T.empty snd . T.uncons)
-                                      . T.break (== '/')
+                                     . T.break (== '/')
                                      )
                                      . filter (not . T.null) . T.split (== ',')
-                                    . T.decodeUtf8 -> ps'') <-
+                                     . T.decodeUtf8 -> ps'') <-
                                     B.unsafePackCStringLen (v, l)
                                 let (hname, peers'') =
                                         fromMaybe (toHostName skey', []) $

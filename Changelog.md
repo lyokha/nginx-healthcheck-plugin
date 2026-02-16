@@ -1,3 +1,12 @@
+### 1.6.4
+
+- Replace *Control.Arrow* with *Data.Bifunctor*.
+- Drop support for *time* &lt; *1.9.1*.
+- **Note**: due to a [bug](https://gitlab.haskell.org/ghc/ghc/-/issues/26136)
+  introduced in GHC major versions *9.12*, *9.10*, and *9.8*, the code won't
+  compile with GHC *9.12.2*, *9.12.1* (fixed in *9.12.4*), *9.10.2* (fixed in
+  *9.10.3*), *9.8.4* (not fixed, compile with *9.8.2*).
+
 ### 1.6.3
 
 - Added ability to tweak CA store when running health checks over *https*.
