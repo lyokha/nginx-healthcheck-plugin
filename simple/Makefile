@@ -28,8 +28,8 @@ CABALVER := $(shell $(CABAL) --numeric-version)
 GHCPUID := $(shell \
     if printf '3.12\n$(CABALVER)' | sort -VC && \
        printf '9.8\n$(GHCVER)' | sort -VC; \
-    then ghcpuid=`$(CABAL) path --compiler-info | sed -n \
-             's/^compiler-abi-tag:\s*//p'`; \
+    then ghcpuid=`$(GHC) --info | sed -n \
+             's/^.*\x28"Project Unit Id","\(.*\)"\x29.*$$/\1/ip'`; \
         if test -z "$$ghcpuid"; \
         then echo "ghc-$(GHCVER)"; \
         else echo "$$ghcpuid"; \
@@ -55,6 +55,7 @@ config: $(SETUPCONFIG)
 
 $(GHCENVLNK): cabal.project $(PKGNAME).cabal
 	rm -f "$(GHCENVLNK)"
+	$(GHC) --info
 	$(CABAL) install --builddir="$(BUILDDIR)" --lib --only-dependencies \
 	  --package-env .
 ifeq ($(INPLACE),1)
