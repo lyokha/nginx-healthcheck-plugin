@@ -39,6 +39,7 @@ GHCPUID := $(shell \
 GHCENV := .ghc.environment.$(MACHINE)-$(KERNEL)-$(GHCVER)
 GHCENVLNK := .ghc.environment.lnk
 DEPLIBS := $(MACHINE)-$(KERNEL)-$(GHCPUID)
+# fallback to old plain ghcpuid on ghc / cabal sight mismatch on this matter:
 DEPLIBSPLAIN := $(MACHINE)-$(KERNEL)-ghc-$(GHCVER)
 BUILDDIR := dist-nhm
 SETUPCONFIG := $(BUILDDIR)/setup-config
@@ -104,7 +105,7 @@ $(DISTR): $(SETUPCONFIG) $(SRC)
 install: $(DISTR)
 	install -d "$(PREFIX)"
 	tar xf "$(DISTR)" -C "$(PREFIX)" --no-same-owner
-	if -d "$(DEPLIBS)"; \
+	if [ -d "$(DEPLIBS)" ]; \
 	then \
 	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBS)"; \
 	else \
@@ -112,7 +113,7 @@ install: $(DISTR)
 	fi
 
 clean:
-	if -d "$(DEPLIBS)"; \
+	if [ -d "$(DEPLIBS)" ]; \
 	then rm -rf "$(DEPLIBS)"; \
 	else rm -rf "$(DEPLIBSPLAIN)"; \
 	fi
