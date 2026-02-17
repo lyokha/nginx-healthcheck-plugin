@@ -49,8 +49,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Unsafe as B
-import qualified Data.Vector.Mutable as MV
-import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Maybe
@@ -497,48 +495,46 @@ updatePeers (C8.lines -> ls)
             then throwWhenPeersUninitialized skey' peers'
             else when (isNothing $ M.lookup skey' peers') $
                 atomicModifyIORef' peers $ (, ()) . M.insert skey' M.empty
-        usBad <- MV.replicate (length us) Nothing
-        forM_ us $ \ps -> do
-            let (T.decodeUtf8 . fst -> !u) = C8.break (== '|') ps
-            B.unsafeUseAsCString ps $ \ps' ->
-                alloca $ \pv ->
-                    alloca $ \pl -> do
-                        ((0 ==) -> !ok) <-
-                            c_healthcheck c umc t ck (fromBool a) ps' pv pl
-                        if ok
-                            then do
-                                v <- peek pv
-                                (fromIntegral -> l) <- peek pl
-                                (map (second (maybe T.empty snd . T.uncons)
-                                     . T.break (== '/')
-                                     )
-                                     . filter (not . T.null) . T.split (== ',')
-                                     . T.decodeUtf8 -> ps'') <-
-                                    B.unsafePackCStringLen (v, l)
-                                let (hname, peers'') =
-                                        fromMaybe (toHostName skey', []) $
-                                            M.lookup u peers'
-                                unless (null peers'' && null ps'') $
-                                    atomicModifyIORef' peers $
-                                        (, ()) . M.update
-                                                 (Just
-                                                 . M.insert u (hname, ps'')
-                                                 ) skey'
-                            else do
-                                usBad' <- V.unsafeFreeze usBad
-                                let idx = fromJust $
-                                        V.findIndex (== Nothing) usBad'
-                                usBad'' <- V.unsafeThaw usBad'
-                                MV.unsafeWrite usBad'' idx $ Just u
-        (V.toList -> usBad') <- V.unsafeFreeze usBad
-        let usBad'' = L.fromStrict $ T.encodeUtf8 $ T.intercalate ", " $
-                map fromJust $ takeWhile (/= Nothing) usBad'
-        return $ if L.null usBad''
+        usBad <- reverse <$> foldM
+            (\usBad' ps -> do
+                let (T.decodeUtf8 . fst -> !u) = C8.break (== '|') ps
+                B.unsafeUseAsCString ps $ \ps' ->
+                    alloca $ \pv ->
+                        alloca $ \pl -> do
+                            ((0 ==) -> !ok) <-
+                                c_healthcheck c umc t ck (fromBool a) ps' pv pl
+                            if ok
+                                then do
+                                    v <- peek pv
+                                    (fromIntegral -> l) <- peek pl
+                                    (map (second (maybe T.empty snd . T.uncons)
+                                         . T.break (== '/')
+                                         )
+                                        . filter (not . T.null)
+                                        . T.split (== ',')
+                                        . T.decodeUtf8 -> ps'') <-
+                                        B.unsafePackCStringLen (v, l)
+                                    let (hname, peers'') =
+                                            fromMaybe (toHostName skey', []) $
+                                                M.lookup u peers'
+                                    unless (null peers'' && null ps'') $
+                                        atomicModifyIORef' peers $
+                                            (, ())
+                                            . M.update
+                                                  (Just
+                                                  . M.insert u (hname, ps'')
+                                                  ) skey'
+                                    return usBad'
+                                else return $ u : usBad'
+            ) [] us
+        return $ if null usBad
                      then ""
-                     else L.concat ["Healthcheck: upstreams [", usBad''
-                                   ,"] from service set ", skey''
-                                   ," have failed to process"
-                                   ]
+                     else let usBad' = T.encodeUtf8 $ T.intercalate ", " usBad
+                          in L.concat ["Healthcheck: upstreams ["
+                                      , L.fromStrict usBad'
+                                      ,"] from service set ", skey''
+                                      ," have failed to process"
+                                      ]
     | otherwise = throwUserError "Parse error when reading saved peers data!"
 ngxExportServiceHook 'updatePeers
 
