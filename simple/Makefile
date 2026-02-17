@@ -106,16 +106,16 @@ install: $(DISTR)
 	tar xf "$(DISTR)" -C "$(PREFIX)" --no-same-owner
 	if -d "$(DEPLIBS)"; \
 	then \
-	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBS)"
+	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBS)"; \
 	else \
-	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBSPLAIN)"
+	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBSPLAIN)"; \
+	fi
 
 clean:
 	if -d "$(DEPLIBS)"; \
-	then \
-	  rm -rf "$(DEPLIBS)"
-	else \
-	  rm -rf "$(DEPLIBSPLAIN)"
+	then rm -rf "$(DEPLIBS)"; \
+	else rm -rf "$(DEPLIBSPLAIN)"; \
+	fi
 	rm -f $(OBJS) $(HIOBJS) $(DYNOBJS) $(DYNHIOBJS) $(STUBS)
 	rm -f "$(LIB)"
 
