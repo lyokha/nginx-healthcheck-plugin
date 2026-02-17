@@ -103,19 +103,33 @@ $(DISTR): $(SETUPCONFIG) $(SRC)
 	    `"-package-env $(GHCENVLNK) $(LINKRTS)"
 
 install: $(DISTR)
+	######################################################################
+	#                                                                    #
+	#  NOTE: sudo make install may require adjusting $$PATH or GHCPUID    #
+	#        if ghc or cabal are not present in the superuser's PATH or  #
+	#        have incompatible versions, e.g.                            #
+	#                                                                    #
+	#    sudo PATH=$$PATH make install                                    #
+	#    sudo make GHCPUID=ghc-9.8.2-6af5 install                        #
+	#                                                                    #
+	######################################################################
 	install -d "$(PREFIX)"
 	tar xf "$(DISTR)" -C "$(PREFIX)" --no-same-owner
 	if [ -d "$(DEPLIBS)" ]; \
 	then \
 	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBS)"; \
-	else \
+	elif [ -d "$(DEPLIBSPLAIN)" ]; \
+	then \
 	  install "$(PREFIX)/lib$(PLUGNAME).so" "$(PREFIX)/$(DEPLIBSPLAIN)"; \
+	else \
+	  exit 1; \
 	fi
 
 clean:
 	if [ -d "$(DEPLIBS)" ]; \
 	then rm -rf "$(DEPLIBS)"; \
-	else rm -rf "$(DEPLIBSPLAIN)"; \
+	elif [ -d "$(DEPLIBSPLAIN)" ]; \
+	then rm -rf "$(DEPLIBSPLAIN)"; \
 	fi
 	rm -f $(OBJS) $(HIOBJS) $(DYNOBJS) $(DYNHIOBJS) $(STUBS)
 	rm -f "$(LIB)"
