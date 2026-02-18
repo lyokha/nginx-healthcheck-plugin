@@ -109,7 +109,7 @@ install: $(DISTR)
 	#        if ghc or cabal are not present in the superuser's PATH or  #
 	#        have incompatible versions, e.g.                            #
 	#                                                                    #
-	#    sudo PATH=$$PATH make install                                    #
+	#    sudo env "PATH=$$PATH" make install                              #
 	#    sudo make GHCPUID=ghc-9.8.2-6af5 install                        #
 	#                                                                    #
 	######################################################################

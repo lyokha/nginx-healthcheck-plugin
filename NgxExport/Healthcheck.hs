@@ -484,8 +484,7 @@ foreign import ccall unsafe "plugin_ngx_http_haskell_healthcheck"
 updatePeers :: ByteString -> IO L.ByteString
 updatePeers (C8.lines -> ls)
     | (B.splitAt 1 -> (readFlag -> ck, skey)) : us <- ls = do
-        let skey'  = T.decodeUtf8 skey
-            skey'' = L.fromStrict skey
+        let skey' = T.decodeUtf8 skey
         c   <- ngxCyclePtr
         umc <- ngxUpstreamMainConfPtr
         t   <- ngxCachedTimePtr >>= peek
@@ -531,8 +530,8 @@ updatePeers (C8.lines -> ls)
                      then ""
                      else let usBad' = T.encodeUtf8 $ T.intercalate ", " usBad
                           in L.concat ["Healthcheck: upstreams ["
-                                      , L.fromStrict usBad'
-                                      ,"] from service set ", skey''
+                                      ,L.fromStrict usBad'
+                                      ,"] from service set ", L.fromStrict skey
                                       ," have failed to process"
                                       ]
     | otherwise = throwUserError "Parse error when reading saved peers data!"
