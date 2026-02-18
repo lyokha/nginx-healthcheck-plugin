@@ -1,7 +1,7 @@
 ### 1.6.4
 
 - Drop support for *time &lt; 1.9.1*.
-- Drop dependency on package *vector*.
+- Drop dependency on packages *vector* and *safe*.
 - Replace *Control.Arrow* with *Data.Bifunctor*.
 - **Note**: due to a [bug](https://gitlab.haskell.org/ghc/ghc/-/issues/26136)
   introduced in GHC major versions *9.12*, *9.10*, and *9.8*, the code won't

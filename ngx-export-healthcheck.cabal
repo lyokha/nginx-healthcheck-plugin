@@ -42,7 +42,6 @@ library
                      , aeson >= 1.0.0.0
                      , time >= 1.9.1
                      , async
-                     , safe
 
   if flag(SnapStatsServer)
     build-depends:     snap-core

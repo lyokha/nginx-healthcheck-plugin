@@ -68,7 +68,7 @@ import           Data.Fixed
 import           Data.Int
 import           Data.Time.Clock
 import           Data.Time.Calendar
-import           Safe
+import           Text.Read
 
 #ifdef HEALTHCHECK_HTTPS
 import           Data.HashMap.Strict (HashMap)
@@ -114,9 +114,6 @@ data PassRule = DefaultPassRule
               deriving Read
 
 newtype PassRuleParams = PassRuleParams { responseHttpStatus :: HttpStatus }
-
-defaultPassRuleParams :: PassRuleParams
-defaultPassRuleParams = PassRuleParams { responseHttpStatus = 200 }
 
 data TimeInterval = Hr Int
                   | Min Int
@@ -411,12 +408,11 @@ checkPeers cf fstRun = do
         skey' = T.decodeUtf8 skey
     cf'' <- readIORef conf >>=
         maybe (do
-                  let cf'' = readMay $ C8.unpack cf'
-                  when (isNothing cf'') $
-                      terminateWorkerProcess "Unreadable peers configuration!"
-                  let cf''' = fromJust cf''
-                  atomicModifyIORef' conf $ (, ()) . M.insert skey' cf'''
-                  return cf'''
+                  cf'' <- maybe (terminateWorkerProcess
+                                    "Unreadable peers configuration!"
+                                ) return $ readMaybe $ C8.unpack cf'
+                  atomicModifyIORef' conf $ (, ()) . M.insert skey' cf''
+                  return cf''
               ) return . M.lookup skey'
     let !us  = upstreams cf''
         ep   = endpoint cf''
@@ -459,10 +455,7 @@ checkPeers cf fstRun = do
                             query (epUrl ep') (epProto ep') hname p pto
                     let (psGood, psBad) = join bimap (map fst) $
                             partition (byPassRule (epPassRule ep')
-                                      . (\st -> defaultPassRuleParams
-                                            { responseHttpStatus = st }
-                                        )
-                                      . snd
+                                      . PassRuleParams . snd
                                       ) $ map (first fst) ps'
                         ic = T.intercalate ","
                     return $ T.concat [u, "|", ic psBad, "/", ic psGood]
@@ -553,17 +546,15 @@ updateStats v int = do
                         else (t', id)
                 !psn = f $ M.alter
                            (\old ->
-                               let !new' = if isNothing old
-                                               then ML.singleton skey ps
-                                               else ML.insert skey ps $
-                                                   snd $ fromJust old
+                               let !new' = maybe (ML.singleton skey ps)
+                                               (ML.insert skey ps . snd) old
                                in Just (t, new')
                            ) pid ps'
             in (tn, psn)
 
 receiveStats :: L.ByteString -> ByteString -> IO L.ByteString
-receiveStats v sint = do
-    let !int = toNominalDiffTime $ readDef (Min 5) $ C8.unpack sint
+receiveStats v (C8.unpack -> sint) = do
+    let !int = toNominalDiffTime $ fromMaybe (Min 5) $ readMaybe sint
     updateStats v int
     return "done"
 ngxExportAsyncOnReqBody 'receiveStats
@@ -645,7 +636,7 @@ statsServer cf fstRun = do
         then do
             cf' <- maybe (terminateWorkerProcess
                              "Unreadable stats server configuration!"
-                         ) return $ readMay $ C8.unpack cf
+                         ) return $ readMaybe $ C8.unpack cf
             let !int = toNominalDiffTime $ ssPurgeInterval cf'
             simpleHttpServe (ssConfig $ ssPort cf') $ ssHandler int
         else threadDelaySec 5
