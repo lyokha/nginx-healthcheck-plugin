@@ -11,7 +11,7 @@ jobs:
       matrix:
         # builds with ghc 9.8.4, 9.10.2, 9.12.1, 9.12.2 fail due to issue
         # https://gitlab.haskell.org/ghc/ghc/-/issues/26136
-        ghc: ['8.10', '9.0', '9.2']
+        ghc: ['9.2']
         cabal: ['3.8']
         nginx: [1.22.1]
         nginx-haskell-module: [3.4.4]
