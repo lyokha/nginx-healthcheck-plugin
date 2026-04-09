@@ -5,5 +5,5 @@ packages:       ngx-healthcheck-periodic.cabal
 
 -- enforce building the Snap monitoring server
 constraints:    ngx-export-healthcheck +snapstatsserver +healthcheckhttps
-              , ngx-export-tools-extra -pcre
+              , ngx-export-tools-extra -pcre -ede
 
