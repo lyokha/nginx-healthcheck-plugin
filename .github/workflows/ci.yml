@@ -129,6 +129,11 @@ jobs:
               cd $dir
               sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
                   cabal.project
+              if [ "$dir" != simple ] && printf "$GHCVER\n9.0" | sort -VC
+              then
+                  sed -i 's/\(^\s\+\,\s\+\)\(ngx-export-tools-extra\)\(.*\)/'`
+                     `'\1\2 == 1.2.12.1\n\1\2\3/' cabal.project
+              fi
               if [ "${{ matrix.allownewer }}" = true ]
               then
                   echo "allow-newer: all" >> cabal.project
