@@ -11,27 +11,29 @@ jobs:
       matrix:
         # builds with ghc 9.8.4, 9.10.2, 9.12.1, 9.12.2 fail due to issue
         # https://gitlab.haskell.org/ghc/ghc/-/issues/26136
-        ghc: ['8.8', '8.10', '9.0', '9.2']
+        ghc: ['8.10', '9.0', '9.2']
         cabal: ['3.8']
         nginx: [1.22.1]
-        nginx-haskell-module: [3.4.3]
-        experimental: [false]
+        nginx-haskell-module: [3.4.4]
         include:
+          - experimental: false
           - ghc: '9.14'
             cabal: head
             nginx: head
             nginx-haskell-module: head
             experimental: true
+            allownewer: true
           - ghc: '9.14'
             cabal: '3.16'
             nginx: 1.28.1
             nginx-haskell-module: head
             experimental: true
+            allownewer: true
           - ghc: '9.12'
             cabal: '3.16'
             nginx: 1.28.1
             nginx-haskell-module: head
-            experimental: true
+            experimental: false
           - ghc: '9.10'
             cabal: '3.14'
             nginx: 1.26.3
@@ -127,6 +129,10 @@ jobs:
               cd $dir
               sed -i 's/^packages: .\+/& ..\/ngx-export-healthcheck.cabal/' \
                   cabal.project
+              if [ "${{ matrix.allownewer }}" = true ]
+              then
+                  echo "allow-newer: all" >> cabal.project
+              fi
               make PREFIX="$TEST_NGINX_HCLIB_DIR" INPLACE=1 $LINKRTS
               make PREFIX="$TEST_NGINX_HCLIB_DIR" install
               cd -
