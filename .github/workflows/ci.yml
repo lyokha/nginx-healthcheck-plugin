@@ -131,8 +131,8 @@ jobs:
                   cabal.project
               if [ "$dir" != simple ] && printf "$GHCVER\n9.0" | sort -VC
               then
-                  sed -i 's/\(^\s\+\,\s\+\)\(ngx-export-tools-extra\s\+\)/'`
-                        `'\1\2== 1.2.12.1\n\1\2/' cabal.project
+                  sed -i 's/^\s*,\s*ngx-export-tools-extra\s\+/'`
+                        `'&== 1.2.12.1\n&/' cabal.project
               fi
               if [ "${{ matrix.allownewer }}" = true ]
               then
