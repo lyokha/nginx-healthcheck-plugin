@@ -64,7 +64,7 @@ jobs:
           cabal-version: ${{ matrix.cabal }}
           cabal-update: true
       - name: Install prove
-        uses: perl-actions/install-with-cpanm@v2.1
+        uses: perl-actions/install-with-cpanm@v2
         with:
           install: "Test::Nginx"
           tests: false
