@@ -25,7 +25,7 @@ jobs:
             allownewer: true
           - ghc: '9.14'
             cabal: '3.16'
-            nginx: 1.28.3
+            nginx: 1.30.0
             nginx-haskell-module: head
             experimental: true
             allownewer: true

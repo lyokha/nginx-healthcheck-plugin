@@ -1,5 +1,5 @@
 name:                  ngx-export-healthcheck
-version:               1.6.4
+version:               1.6.4.1
 synopsis:              Active health checks and monitoring of Nginx upstreams
 description:           Active health checks and monitoring of Nginx upstreams.
         .
@@ -52,7 +52,7 @@ library
   if flag(HealthcheckHttps)
     build-depends:     http-client-tls >= 0.3.4
                      , unordered-containers
-                     , data-default-class
+                     , data-default >= 0.8
                      , crypton-connection
                      , crypton-x509
                      , crypton-x509-store

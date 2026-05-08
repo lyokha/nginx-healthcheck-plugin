@@ -1,3 +1,7 @@
+### 1.6.4.1
+
+- Replace dependency package *data-default-class* with *data-default*.
+
 ### 1.6.4
 
 - Drop support for *time &lt; 1.9.1*.

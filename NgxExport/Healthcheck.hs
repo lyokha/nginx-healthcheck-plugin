@@ -73,7 +73,7 @@ import           Text.Read
 #ifdef HEALTHCHECK_HTTPS
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
-import           Data.Default.Class
+import           Data.Default
 import           Network.HTTP.Client.TLS
 import           Network.Connection
 import           Network.TLS hiding (HashSHA256)
