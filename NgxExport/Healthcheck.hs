@@ -623,12 +623,11 @@ sendMergedStatsSnap =
         modifyResponse $ setContentType "application/json"
         writeLBS $ encode s
 
-handleStatsExceptions :: String -> Snap () -> Snap ()
-handleStatsExceptions cmsg = handleAny $ \e ->
-    writeErrorResponse 500 $ show (e :: SomeException)
+handleStatsExceptions :: ByteString -> Snap () -> Snap ()
+handleStatsExceptions cmsg = handleAny $ writeErrorResponse 500 . show
     where writeErrorResponse c msg = do
-              modifyResponse $ setResponseStatus c $ T.encodeUtf8 $ T.pack cmsg
-              writeBS $ T.encodeUtf8 $ T.pack msg
+              modifyResponse $ setResponseStatus c cmsg
+              writeBS $ C8.pack msg
 
 statsServer :: ByteString -> Bool -> IO L.ByteString
 statsServer cf fstRun = do

@@ -1,6 +1,7 @@
 ### 1.6.4.1
 
 - Replace dependency package *data-default-class* with *data-default*.
+- Refactor function *handleStatsExceptions*.
 
 ### 1.6.4
 
